@@ -21,6 +21,14 @@ const OUT = path.join(ROOT, 'momentum', 'data');
 const HISTORY_FROM = 20090101;      // 250 sesji rozgrzewki przed pierwszym rebalansem w 2010
 const UNIVERSE_FROM = 2009;         // pierwszy rok rewizji składu
 const UNIVERSE_SIZE = 140;          // WIG20 + mWIG40 + sWIG80
+
+// Benchmarki do porównań. Pliki szukane we wszystkich paczkach Stooq (d_pl_txt, d_de_txt, d_world_txt…);
+// notowania w EUR/USD przeliczane na złote kursem z paczki walutowej (eurpln.txt / usdpln.txt).
+const BENCHMARKS = [
+    { t: 'ETFBW20TR', name: 'BETA ETF WIG20TR', files: [['etfbw20tr.pl.txt', 'PLN']] },
+    { t: 'VUAA', name: 'Vanguard S&P 500 (Acc)', files: [['vuaa.de.txt', 'EUR'], ['vuaa.us.txt', 'USD']] },
+    { t: 'VWCE', name: 'Vanguard FTSE All-World', files: [['vwce.de.txt', 'EUR'], ['vwrl.de.txt', 'EUR']] },
+];
 const LIVE_MONTHS = 20;             // ile historii trafia do lekkiego pliku live.json
 
 const args = process.argv.slice(2);
@@ -47,7 +55,7 @@ function findSource() {
 }
 
 function extract(zip) {
-    const dir = path.join(os.tmpdir(), 'momentum-stooq');
+    const dir = path.join(os.tmpdir(), 'momentum-' + path.basename(zip, '.zip'));
     fs.rmSync(dir, { recursive: true, force: true });
     fs.mkdirSync(dir, { recursive: true });
     log(`Rozpakowuję ${path.basename(zip)}…`);
@@ -57,6 +65,32 @@ function extract(zip) {
         execFileSync('unzip', ['-q', '-o', zip, '-d', dir], { stdio: 'ignore' });
     }
     return dir;
+}
+
+// pozostałe paczki Stooq (np. d_de_txt.zip, d_world_txt.zip) w folderze projektu lub w Pobranych
+function findExtraPacks() {
+    const dirs = [ROOT, path.join(os.homedir(), 'Downloads')].filter(d => fs.existsSync(d));
+    const found = new Map();
+    for (const d of dirs) {
+        for (const e of fs.readdirSync(d)) {
+            const m = /^(d_(?!pl_)[a-z]+_txt)(.zip)?$/i.exec(e);
+            if (m && !found.has(m[1].toLowerCase())) found.set(m[1].toLowerCase(), path.join(d, e));
+        }
+    }
+    return [...found.values()].map(p => fs.statSync(p).isDirectory() ? p : extract(p));
+}
+
+function indexFiles(bases) {
+    const idx = new Map();
+    const stack = [...bases];
+    while (stack.length) {
+        const d = stack.pop();
+        for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+            if (e.isDirectory()) stack.push(path.join(d, e.name));
+            else if (!idx.has(e.name.toLowerCase())) idx.set(e.name.toLowerCase(), path.join(d, e.name));
+        }
+    }
+    return idx;
 }
 
 function findPlDir(base) {
@@ -150,16 +184,38 @@ if (manual.length) {
 }
 log(`Rewizji składu: ${universe.length}, bieżący skład od ${E.plDate(current.from)} (${current.tickers.length} spółek${current.source ? ', z listy ręcznej' : ', przybliżony'}).`);
 
-// ---------- 4. zapis
+// ---------- 4. benchmarki (ETF-y) w złotych
+const files = indexFiles([path.dirname(plDir), ...findExtraPacks()]);
+const readSeries = name => Object.values(E.parseStooq(name, fs.readFileSync(files.get(name), 'utf8')))[0];
+const benchSeries = {}, benchMeta = [];
+for (const b of BENCHMARKS) {
+    const hit = b.files.find(([name, ccy]) => files.has(name) && (ccy === 'PLN' || files.has(ccy.toLowerCase() + 'pln.txt')));
+    if (!hit) { log(`Benchmark ${b.name}: brak danych (potrzebne pliki: ${b.files.map(x => x[0]).join(' lub ')} i kurs waluty) — pomijam.`); continue; }
+    const [name, ccy] = hit;
+    const s = readSeries(name);
+    if (ccy !== 'PLN') {
+        const fx = readSeries(ccy.toLowerCase() + 'pln.txt');
+        const rate = d => { const i = E.lastIdx(fx.d, d); return i >= 0 && E.daysBetween(fx.d[i], d) <= E.STALE_DAYS ? fx.c[i] : NaN; };
+        for (let i = 0; i < s.d.length; i++) { const r = rate(s.d[i]); s.c[i] *= r; s.h[i] *= r; s.l[i] *= r; }
+        const ok = [...s.c.keys()].filter(i => s.c[i] > 0);
+        for (const k of ['d', 'c', 'h', 'l']) s[k] = s[k].constructor.from(ok, i => s[k][i]);
+    }
+    benchSeries[b.t] = s;
+    benchMeta.push({ t: b.t, name: b.name, source: name, currency: ccy });
+    log(`Benchmark ${b.name}: ${name}${ccy !== 'PLN' ? ` (${ccy} → PLN)` : ''}, od ${E.plDate(s.d[0])}`);
+}
+
+// ---------- 5. zapis
 fs.mkdirSync(OUT, { recursive: true });
 const everIn = new Set(universe.flatMap(u => u.tickers));
 function pack(kind, tickers, from, entries) {
     const series = { WIG: E.encodeSeries(wig, from) };
+    for (const [t, s] of Object.entries(benchSeries)) { const enc = E.encodeSeries(s, from); if (enc) series[t] = enc; }
     for (const t of [...tickers].sort()) {
         const enc = E.encodeSeries(stocks[t], from);
         if (enc) series[t] = enc;
     }
-    return { kind, generated: new Date().toISOString(), source: 'stooq.pl d_pl_txt', lastDate, bench: 'WIG', universe: entries, series };
+    return { kind, generated: new Date().toISOString(), source: 'stooq.pl d_pl_txt', lastDate, bench: 'WIG', benchmarks: benchMeta.filter(b => series[b.t]), universe: entries, series };
 }
 function write(name, obj) {
     const file = path.join(OUT, name);
@@ -180,7 +236,7 @@ fs.writeFileSync(path.join(OUT, 'wig140-auto.txt'),
     `# Żeby użyć oficjalnej listy, wklej tickery do wig140.txt w tym folderze.\n` +
     current.tickers.join('\n') + '\n');
 
-// ---------- 5. opcjonalnie: testy + commit + push
+// ---------- 6. opcjonalnie: testy + commit + push
 if (push) {
     const run = (cmd, a) => execFileSync(cmd, a, { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32' });
     run('npm', ['test']);

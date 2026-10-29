@@ -94,3 +94,19 @@ test('determinizm: dwa przebiegi dają identyczny wynik', () => {
     assert.deepEqual(a.value, b.value);
     assert.equal(a.trades.length, b.trades.length);
 });
+
+test('benchmarki ETF: nie zmieniają kalendarza GPW, nie trafiają do uniwersum, są zapisywane w wyniku', () => {
+    const data = { WIG: flat(), A: series(dates, path(N, { annual: 0.5, noise: 0.005, seed: 3 })) };
+    // ETF z zagranicznej giełdy: notowany też w polskie święta i dopiero od połowy okresu
+    const foreign = [];
+    for (let d = dates[400]; d <= dates[N - 1]; d = E.addDays(d, 1)) if (E.toDate(d).getDay() % 6) foreign.push(d);
+    data.ETF = series(foreign, path(foreign.length, { annual: 0.1, seed: 8 }));
+    const eng = engine(data, {}, { benchmarks: [{ t: 'ETF', name: 'Test ETF' }] });
+    assert.deepEqual(Array.from(eng.calendar()), dates);
+    assert.ok(!eng.universeAt(dates[N - 1]).includes('ETF'));
+    const res = eng.runBacktest({ start: dates[260], capital: 10000 });
+    assert.equal(res.extra.length, 1);
+    assert.ok(Number.isNaN(res.extra[0].values[0]), 'brak wartości przed debiutem');
+    assert.ok(res.extra[0].values.at(-1) > 0);
+    assert.ok(!res.trades.some(x => x.t === 'ETF'));
+});

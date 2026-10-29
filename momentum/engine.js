@@ -164,7 +164,7 @@ function decodePack(pack) {
         }
         series[t] = { d, c, h, l };
     }
-    return { series, universe: pack.universe || null, bench: pack.bench || 'WIG', lastDate: pack.lastDate || 0, generated: pack.generated || '', kind: pack.kind || '' };
+    return { series, universe: pack.universe || null, benchmarks: pack.benchmarks || [], bench: pack.bench || 'WIG', lastDate: pack.lastDate || 0, generated: pack.generated || '', kind: pack.kind || '' };
 }
 
 function encodeSeries(s, from = 0) {
@@ -301,14 +301,14 @@ function makeDemo({ seed = 20260101, stocks = 40, from = 20120102, to = 0 } = {}
 // --- instancja strategii: parametry + dane + ustawienia
 function createEngine(init = {}) {
     let P = { ...DEFAULT_PARAMS };
-    let DATA = { series: {}, universe: null, demo: false };
+    let DATA = { series: {}, universe: null, benchmarks: [], demo: false };
     let SET = { bench: 'WIG', universe: '' };
     let cal = null;
     const uniCache = new Map();
 
     function configure({ params, data, settings } = {}) {
         if (params) P = { ...DEFAULT_PARAMS, ...params };
-        if (data) DATA = { series: {}, universe: null, demo: false, ...data };
+        if (data) DATA = { series: {}, universe: null, benchmarks: [], demo: false, ...data };
         if (settings) SET = { ...SET, ...settings };
         cal = null;
         uniCache.clear();
@@ -320,6 +320,9 @@ function createEngine(init = {}) {
     const tranchesForMonth = m => P.monthlyTranche ? [trancheOfMonth(m), MONTHLY] : [trancheOfMonth(m)];
     // transza, która rebalansuje się jako następna po k: kolejna kwartalna albo (dla miesięcznej) kwartalna z następnego miesiąca
     const nextTranche = (k, date) => k < TRANCHES ? (k + 1) % TRANCHES : trancheOfMonth(Math.floor(date / 100) % 100 % 12 + 1);
+    // dodatkowe benchmarki (ETF-y) — tylko do porównań, nie do inwestowania
+    const benchmarks = () => (DATA.benchmarks || []).filter(b => DATA.series[b.t]);
+    const isBenchmark = t => (DATA.benchmarks || []).some(b => b.t === t);
     const manualList = () => DATA.demo ? [] : parseTickers(SET.universe);
 
     // skład uniwersum na dzień: lista ręczna > historia składu WIG140 z danych > wszystkie serie
@@ -333,7 +336,7 @@ function createEngine(init = {}) {
             let e = DATA.universe[0];
             for (const u of DATA.universe) { if (date && u.from > date) break; e = u; }
             base = e.tickers;
-        } else base = Object.keys(DATA.series);
+        } else base = Object.keys(DATA.series).filter(t => !isBenchmark(t));
         const res = base.filter(t => t !== b && DATA.series[t]).sort();
         uniCache.set(date, res);
         return res;
@@ -348,7 +351,8 @@ function createEngine(init = {}) {
     function calendar() {
         if (cal) return cal;
         const set = new Set();
-        for (const s of Object.values(DATA.series)) for (const d of s.d) set.add(d);
+        // benchmarki z zagranicznych giełd mają inne dni sesji: nie wchodzą do kalendarza GPW
+        for (const [t, s] of Object.entries(DATA.series)) if (!isBenchmark(t)) for (const d of s.d) set.add(d);
         return (cal = Int32Array.from([...set].sort((a, b) => a - b)));
     }
 
@@ -561,7 +565,7 @@ function createEngine(init = {}) {
         const trs = Array.from({ length: N }, () => ({ cash: capital / N, pos: {} }));
         const deps = (cfg.deposits || []).slice().sort((a, b) => a.date - b.date);
         const bt = benchTicker();
-        const out = { dates: [], value: [], twr: [], bench: [], cashPct: [], trTwr: trs.map(() => []), trades: [], fees: 0, deposited: capital, rebalances: 0 };
+        const out = { dates: [], value: [], twr: [], bench: [], cashPct: [], trTwr: trs.map(() => []), trades: [], fees: 0, deposited: capital, rebalances: 0, extra: benchmarks().map(b => ({ ...b, values: [] })) };
         let dp = 0, prevV = 0, idx = 100, b0 = NaN;
         let prevTV = trs.map(() => 0);
         const tIdx = trs.map(() => 100);
@@ -604,6 +608,7 @@ function createEngine(init = {}) {
             out.value.push(V);
             out.twr.push(idx);
             out.bench.push(bp > 0 && b0 > 0 ? 100 * bp / b0 : NaN);
+            for (const x of out.extra) x.values.push(priceAt(x.t, date));
             out.cashPct.push(V > 0 ? trs.reduce((a, tr) => a + tr.cash, 0) / V : 1);
             cfg.onDay?.(date, trs, V);
         }
@@ -617,7 +622,7 @@ function createEngine(init = {}) {
         get params() { return P; },
         get data() { return DATA; },
         get settings() { return SET; },
-        benchTicker, trancheCount, tranchesForMonth, nextTranche, universeAt, universeSource, manualList, calendar, priceAt, sessionNumber,
+        benchTicker, benchmarks, trancheCount, tranchesForMonth, nextTranche, universeAt, universeSource, manualList, calendar, priceAt, sessionNumber,
         momentumScore, volatility, stockStats, rankAt, fee, trancheValue,
         planTranche, executeOrders, transferExcess, rebalanceSchedule, nextRebalance, runBacktest,
     };

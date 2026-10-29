@@ -232,7 +232,7 @@ async function loadData() {
         const r = await fetch(DATA_URL + 'live.json', { cache: 'no-cache' });
         if (!r.ok) throw new Error(r.status);
         const pack = E.decodePack(await r.json());
-        return setData({ series: pack.series, universe: pack.universe }, { kind: 'repo', lastDate: pack.lastDate, generated: pack.generated });
+        return setData({ series: pack.series, universe: pack.universe, benchmarks: pack.benchmarks }, { kind: 'repo', lastDate: pack.lastDate, generated: pack.generated });
     } catch { /* brak serwera (plik z dysku) albo brak pliku danych */ }
     try {
         const saved = await idb.get('data');
@@ -257,7 +257,7 @@ async function historyData() {
         const r = await fetch(DATA_URL + 'history.json', { cache: 'no-cache' });
         if (r.ok) {
             const pack = E.decodePack(await r.json());
-            return (HIST = { series: pack.series, universe: pack.universe });
+            return (HIST = { series: pack.series, universe: pack.universe, benchmarks: pack.benchmarks });
         }
     }
     return (HIST = eng.data);
@@ -406,6 +406,7 @@ function renderPortfolio() {
         ['Pozycje', `${npos} / ${eng.params.slots * nT()}`],
         ['Najbliższy rebalans', soonest >= 0 ? plDate(next[soonest].exe) : '–', soonest >= 0 ? `Transza ${soonest + 1}, sygnał ${plDate(next[soonest].sig)}` : ''],
     ]));
+    renderMarket();
     $('#pf-calendar').replaceChildren(table(['Transza', 'Miesiące', '>Sygnał (9. sesja)', '>Transakcje (10. sesja)'],
         next.map((x, k) => h('tr', { class: k === soonest ? 'mark' : '' },
             h('td', {}, h('b', {}, `Transza ${k + 1}`)), td(monthsLabel(k)), td(plDate(x.sig), true), td(plDate(x.exe), true)))));
@@ -458,6 +459,19 @@ function renderPortfolio() {
     });
     renderPlan();
     renderJournal();
+}
+
+// stopy zwrotu WIG i ETF-ów z bieżących notowań
+function renderMarket() {
+    const host = $('#pf-market');
+    host.replaceChildren();
+    const list = [{ t: eng.benchTicker(), name: eng.benchTicker() }, ...eng.benchmarks()].filter(x => eng.data.series[x.t]);
+    if (!list.length || !ANALYSIS) return;
+    const y = Math.floor(ANALYSIS / 10000);
+    const ret = (t, from) => { const a = eng.priceAt(t, from), b = eng.priceAt(t, ANALYSIS); return a > 0 && b > 0 ? b / a - 1 : NaN; };
+    const periods = [['Od początku roku', (y - 1) * 10000 + 1231], ['3 miesiące', E.addDays(ANALYSIS, -91)], ['12 miesięcy', E.addDays(ANALYSIS, -365)]];
+    host.append(panel('Rynek i benchmarki', 'stopy zwrotu w złotych, z dywidendami',
+        table(['Benchmark', ...periods.map(p => '>' + p[0])], list.map(x => h('tr', {}, h('td', {}, h('b', {}, x.name)), periods.map(([, from]) => td(pct(ret(x.t, from)), true)))))));
 }
 
 function renderPlan() {
@@ -580,7 +594,7 @@ function lineChart(host, cfg) {
         const cs = getComputedStyle(document.documentElement);
         const col = name => cs.getPropertyValue(name).trim();
         const endLabels = cfg.series.length <= 4 && W > 520;
-        const pad = { l: 54, r: endLabels ? 100 : 12, t: 10, b: 26 };
+        const pad = { l: 54, r: endLabels ? 132 : 12, t: 10, b: 26 };
         const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
         let lo = Infinity, hi = -Infinity;
         for (const s of cfg.series) for (const v of s.values) if (Number.isFinite(v) && (!cfg.log || v > 0)) { if (v < lo) lo = v; if (v > hi) hi = v; }
@@ -715,6 +729,14 @@ function lineChart(host, cfg) {
 }
 
 // ---------- symulacja i stres-testy
+// seria benchmarku przeskalowana tak, by w dniu pierwszego notowania równała się wartości strategii
+function rebase(values, ref) {
+    const i = values.findIndex(v => v > 0);
+    if (i < 0) return values;
+    const k = ref[i] / values[i];
+    return values.map(v => v > 0 ? v * k : NaN);
+}
+
 function parseDeposits(text) {
     return String(text || '').split(/\r?\n/).map(line => {
         const m = /^\s*(\d{4}-\d{2}-\d{2})\s+([\d\s.,]+?)\s*$/.exec(line);
@@ -804,30 +826,49 @@ function renderBacktest() {
 
     const logCb = h('input', { type: 'checkbox', checked: true });
     const trCb = h('input', { type: 'checkbox' });
+    const ext = res.extra.map(x => ({ ...x, rebased: rebase(x.values, res.twr) }));
+    trCb.onclick = () => { if (trCb.checked) bmCb.checked = false; };
+    const bmCb = h('input', { type: 'checkbox', checked: ext.length > 0, disabled: !ext.length, onclick: () => { if (bmCb.checked) trCb.checked = false; } });
     const chartHost = h('div'), ddHost = h('div');
     const hasBench = res.bench.some(Number.isFinite);
     let mainDraw = null;
     const drawMain = () => {
         const series = [{ name: 'Strategia', color: '--series-1', values: res.twr }];
         if (hasBench) series.push({ name: b, color: '--series-2', values: res.bench });
+        if (bmCb.checked) ext.forEach((x, j) => series.push({ name: x.name, color: `--series-${j + 3}`, values: x.rebased, width: 1.5 }));
         if (trCb.checked) res.trTwr.forEach((v, k) => series.push({ name: `Transza ${k + 1}`, color: `--series-${k + 3}`, values: v, width: 1.5 }));
         liveCharts = liveCharts.filter(f => f !== mainDraw);
         mainDraw = lineChart(chartHost, { x: res.dates, series, log: logCb.checked, label: 'Wzrost wartości strategii na tle benchmarku', yFmt: (v, full) => nf(v, full ? 1 : 0) });
     };
-    logCb.onchange = trCb.onchange = drawMain;
+    logCb.onchange = trCb.onchange = bmCb.onchange = drawMain;
     out.append(h('section', { class: 'panel' },
         h('div', { class: 'panel-head' },
             h('h2', {}, 'Wzrost wartości'),
             h('div', { class: 'row', style: 'gap:18px' },
                 h('label', { class: 'check small' }, logCb, 'Skala logarytmiczna'),
-                h('label', { class: 'check small' }, trCb, 'Pokaż transze'))),
+                h('label', { class: 'check small' }, bmCb, 'Benchmarki ETF'),
+                h('label', { class: 'check small' }, trCb, 'Transze'))),
         h('div', { class: 'panel-body' }, h('p', { class: 'small muted', style: 'margin:0 0 12px' }, 'Indeks stopy zwrotu ważonej czasem, start = 100. Wpłaty nie zawyżają wyniku.'), chartHost)));
     drawMain();
 
     const ddSeries = [{ name: 'Strategia', color: '--series-1', values: E.drawdown(res.twr) }];
     if (hasBench) ddSeries.push({ name: b, color: '--series-2', values: E.drawdown(res.bench) });
+    ext.forEach((x, j) => ddSeries.push({ name: x.name, color: `--series-${j + 3}`, values: E.drawdown(x.values), width: 1.5 }));
     out.append(panel('Obsunięcie od szczytu', null, ddHost));
     lineChart(ddHost, { x: res.dates, series: ddSeries, zeroTop: true, height: 220, label: 'Obsunięcie od szczytu', yFmt: (v, full) => pct(v, full ? 1 : 0) });
+
+    const cmp = [{ name: b, values: res.bench }, ...ext].map(x => {
+        const i0 = x.values.findIndex(v => v > 0);
+        if (i0 < 0) return null;
+        const d = res.dates.slice(i0), sS = E.perfStats(d, res.twr.slice(i0)), sB = E.perfStats(d, x.values.slice(i0));
+        return h('tr', {}, h('td', {}, h('b', {}, x.name)), td(plDate(res.dates[i0])),
+            td(pct(sB?.total), true), td(pct(sB?.cagr), true), td(pct(sB?.mdd), true),
+            h('td', { class: 'num' }, h('b', {}, pct(sS?.cagr))), td(pct(sS?.mdd), true),
+            td(Number.isFinite(sS?.cagr - sB?.cagr) ? nf((sS.cagr - sB.cagr) * 100, 1) + ' pp' : '–', true));
+    }).filter(Boolean);
+    out.append(panel('Porównanie z benchmarkami', 'każdy wiersz liczony od pierwszego notowania benchmarku w okresie symulacji, ceny w złotych',
+        table(['Benchmark', 'Od', '>Wynik łącznie', '>CAGR', '>Obsunięcie', '>CAGR strategii', '>Obsunięcie strategii', '>Przewaga'], cmp),
+        ext.length < 3 ? h('p', { class: 'small muted', style: 'margin:12px 0 0' }, 'Fundusze Vanguard pojawią się po dodaniu paczek Stooq dla Niemiec (d_de_txt) i walut (d_world_txt) i uruchomieniu npm run update.') : null));
 
     const crisisRows = E.CRISES.map(([name, from, to]) => {
         const w = E.windowStats(res, from, to);
@@ -840,12 +881,14 @@ function renderBacktest() {
             table(['Okres', 'Daty', '>Strategia', '>Obsunięcie', '>' + b, `>Obsunięcie ${b}`, '>Gotówka śr.'], crisisRows)));
     }
 
-    const yr = E.yearlyReturns(res.dates, [res.twr, res.bench, ...res.trTwr]);
+    const yr = E.yearlyReturns(res.dates, [res.twr, res.bench, ...res.trTwr, ...ext.map(x => x.values)]);
+    const nTr = res.trTwr.length;
     out.append(panel('Stopy zwrotu w latach', 'pierwszy i ostatni rok mogą być niepełne',
-        table(['Rok', '>Strategia', '>' + b, '>Różnica', ...res.trTwr.map((_, k) => `>T${k + 1}`)], yr.map(r => h('tr', {},
+        table(['Rok', '>Strategia', '>' + b, '>Różnica', ...res.trTwr.map((_, k) => `>T${k + 1}`), ...ext.map(x => '>' + x.t)], yr.map(r => h('tr', {},
             td(String(r.year)), h('td', { class: 'num' }, h('b', {}, pct(r.vals[0]))), td(pct(r.vals[1]), true),
             td(Number.isFinite(r.vals[1]) ? nf((r.vals[0] - r.vals[1]) * 100, 1) + ' pp' : '–', true),
-            res.trTwr.map((_, k) => td(pct(r.vals[k + 2]), true)))))));
+            res.trTwr.map((_, k) => td(pct(r.vals[k + 2]), true)),
+            ext.map((_, j) => td(pct(r.vals[2 + nTr + j]), true)))))));
 
     out.append(panel('Transze osobno', null,
         table(['Transza', 'Miesiące', '>CAGR', '>Obsunięcie', '>Wartość końcowa', 'Skład na koniec'], res.final.map((tr, k) => {
