@@ -5,7 +5,7 @@
 const E = window.MomentumEngine;
 const S = window.MomentumSync;
 const eng = E.createEngine();
-const { TRANCHES, TRANCHE_MONTHS, DEFAULT_PARAMS, plDate, iso, fromIso, ymd, lastIdx, daysBetween } = E;
+const { MAX_TRANCHES, MONTHLY, TRANCHE_MONTHS, DEFAULT_PARAMS, plDate, iso, fromIso, ymd, lastIdx, daysBetween } = E;
 const DATA_URL = 'momentum/data/';
 const STATE_KEY = 'momentum.state';
 
@@ -28,7 +28,10 @@ const nf = (v, d = 2) => Number.isFinite(v) ? v.toLocaleString('pl-PL', { minimu
 const pln = v => Number.isFinite(v) ? nf(v, 2) + ' zł' : '–';
 const pct = (v, d = 1) => Number.isFinite(v) ? nf(v * 100, d) + '%' : '–';
 const MONTHS = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
-const monthsLabel = k => TRANCHE_MONTHS[k].map(m => MONTHS[m - 1]).join(' · ');
+const monthsLabel = k => k === MONTHLY ? 'co miesiąc' : TRANCHE_MONTHS[k].map(m => MONTHS[m - 1]).join(' · ');
+// aktywne transze: 3 kwartalne + (opcjonalnie) miesięczna; portfel zawsze przechowuje wszystkie 4
+const nT = () => eng.trancheCount();
+const active = () => PF.tranches.slice(0, nT());
 const today = () => ymd(new Date());
 
 function figures(items) {
@@ -96,7 +99,7 @@ let pushTimer = null;
 function normalizePF(x) {
     const tr = Array.isArray(x?.tranches) ? x.tranches : [];
     return {
-        tranches: Array.from({ length: TRANCHES }, (_, k) => ({
+        tranches: Array.from({ length: MAX_TRANCHES }, (_, k) => ({
             cash: +tr[k]?.cash || 0,
             pos: Object.fromEntries(Object.entries(tr[k]?.pos || {})
                 .filter(([, n]) => Math.floor(+n) > 0)
@@ -296,6 +299,8 @@ function renderNotices() {
     el.replaceChildren();
     if (SOURCE.kind === 'demo') el.append(h('div', { class: 'notice' }, 'Wczytane są dane demonstracyjne (syntetyczne spółki DEMO01–DEMO40). Służą wyłącznie do przetestowania aplikacji.'));
     if (SOURCE.kind === 'none') el.append(h('div', { class: 'notice info' }, 'Brak notowań. Otwórz aplikację z serwera (GitHub Pages) albo wczytaj pliki Stooq w zakładce Dane.'));
+    const hidden = PF.tranches.slice(nT()).filter(tr => tr.cash > 0 || Object.keys(tr.pos).length);
+    if (hidden.length) el.append(h('div', { class: 'notice' }, 'Transza miesięczna jest wyłączona w parametrach, ale ma środki lub akcje. Włącz ją ponownie albo przenieś środki do innych transz.'));
     const last = eng.calendar().at(-1);
     if (last && SOURCE.kind !== 'demo') {
         const age = daysBetween(last, today());
@@ -388,16 +393,17 @@ function renderRanking() {
 function renderPortfolio() {
     const date = ANALYSIS;
     $('#pf-date').textContent = hasData() ? `Wycena po kursach zamknięcia z ${plDate(date)}` : 'Brak notowań do wyceny';
-    const vals = PF.tranches.map(tr => eng.trancheValue(tr, date));
+    const vals = active().map(tr => eng.trancheValue(tr, date));
     const total = vals.reduce((a, b) => a + b, 0);
-    const cash = PF.tranches.reduce((a, tr) => a + tr.cash, 0);
-    const npos = PF.tranches.reduce((a, tr) => a + Object.keys(tr.pos).length, 0);
-    const next = PF.tranches.map((_, k) => eng.nextRebalance(k, today()));
+    const cash = active().reduce((a, tr) => a + tr.cash, 0);
+    const npos = active().reduce((a, tr) => a + Object.keys(tr.pos).length, 0);
+    const next = active().map((_, k) => eng.nextRebalance(k, today()));
     const soonest = next.reduce((best, x, k) => x.exe && (best < 0 || x.exe < next[best].exe) ? k : best, -1);
+    $('#dep-target option[value="3"]').hidden = nT() < MAX_TRANCHES;
     $('#pf-figures').replaceChildren(figures([
         ['Wartość portfela', pln(total)],
         ['Gotówka', pln(cash), total > 0 ? `${pct(cash / total)} portfela` : ''],
-        ['Pozycje', `${npos} / ${eng.params.slots * TRANCHES}`],
+        ['Pozycje', `${npos} / ${eng.params.slots * nT()}`],
         ['Najbliższy rebalans', soonest >= 0 ? plDate(next[soonest].exe) : '–', soonest >= 0 ? `Transza ${soonest + 1}, sygnał ${plDate(next[soonest].sig)}` : ''],
     ]));
     $('#pf-calendar').replaceChildren(table(['Transza', 'Miesiące', '>Sygnał (9. sesja)', '>Transakcje (10. sesja)'],
@@ -406,7 +412,7 @@ function renderPortfolio() {
 
     const cards = $('#pf-cards');
     cards.replaceChildren();
-    PF.tranches.forEach((tr, k) => {
+    active().forEach((tr, k) => {
         const v = vals[k];
         const posRows = Object.entries(tr.pos).sort(([a], [b]) => a.localeCompare(b)).map(([t, n]) => {
             const p = eng.priceAt(t, date);
@@ -447,7 +453,7 @@ function renderPortfolio() {
                 }, 'Dodaj'))),
             h('div', { class: 'panel-foot' }, h('button', {
                 class: 'btn', disabled: !hasData(),
-                onclick: () => { PLAN = eng.planTranche(PF.tranches, k, ANALYSIS); renderPlan(); $('#pf-plan').scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+                onclick: () => { PLAN = eng.planTranche(active(), k, ANALYSIS); renderPlan(); $('#pf-plan').scrollIntoView({ behavior: 'smooth', block: 'start' }); },
             }, 'Przygotuj rebalans'))));
     });
     renderPlan();
@@ -458,9 +464,9 @@ function renderPlan() {
     const el = $('#pf-plan');
     el.replaceChildren();
     if (!PLAN) return;
-    const pl = PLAN, k = pl.k, nextK = (k + 1) % TRANCHES;
+    const pl = PLAN, k = pl.k, nextK = pl.to;
     const sess = eng.sessionNumber(pl.date), month = Math.floor(pl.date / 100) % 100;
-    const onSchedule = sess === eng.params.signalSession && E.trancheOfMonth(month) === k;
+    const onSchedule = sess === eng.params.signalSession && eng.tranchesForMonth(month).includes(k);
     const sim = structuredClone(PF.tranches[k]);
     let fees = 0;
     eng.executeOrders(sim, pl.orders, t => eng.priceAt(t, pl.date), x => { fees += x.fee; });
@@ -470,11 +476,11 @@ function renderPlan() {
     const body = [];
     if (!onSchedule) {
         body.push(h('div', { class: 'notice', style: 'margin:0 0 16px' },
-            `Wybrany dzień to ${sess || '?'}. sesja miesiąca (${MONTHS[month - 1]}). Transza ${k + 1} rebalansuje się po ${eng.params.signalSession}. sesji w miesiącach: ${monthsLabel(k)}. Ten plan jest poglądowy.`));
+            `Wybrany dzień to ${sess || '?'}. sesja miesiąca (${MONTHS[month - 1]}). Transza ${k + 1} rebalansuje się po ${eng.params.signalSession}. sesji (${k === MONTHLY ? 'co miesiąc' : 'w miesiącach: ' + monthsLabel(k)}). Ten plan jest poglądowy.`));
     }
     body.push(h('dl', { class: 'kv', style: 'margin-bottom:20px' },
         h('dt', {}, 'Wartość transzy'), h('dd', {}, pln(pl.V)),
-        h('dt', {}, '1/3 wartości portfela'), h('dd', {}, pln(pl.total / TRANCHES)),
+        h('dt', {}, `1/${nT()} wartości portfela`), h('dd', {}, pln(pl.total / nT())),
         h('dt', {}, `Nadwyżka do transzy ${nextK + 1}`), h('dd', {}, pln(moved)),
         h('dt', {}, 'Do zainwestowania'), h('dd', {}, pln(pl.invest))));
     body.push(h('h3', { style: 'margin-bottom:8px' }, 'Docelowy skład'));
@@ -518,8 +524,8 @@ function renderPlan() {
 function bookPlan() {
     const pl = PLAN, k = pl.k, parts = [];
     eng.executeOrders(PF.tranches[k], pl.orders, t => eng.priceAt(t, pl.date), x => parts.push(`${x.side === 'buy' ? 'kupno' : 'sprzedaż'} ${x.shares} ${x.t} po ${nf(x.price)}`));
-    const moved = eng.transferExcess(PF.tranches, k, pl.excess);
-    journal(`Rebalans transzy ${k + 1} (sygnał ${plDate(pl.date)}): ${parts.join(', ') || 'bez zmian'}${moved ? `; nadwyżka ${pln(moved)} → transza ${(k + 1) % TRANCHES + 1}` : ''}.`);
+    const moved = eng.transferExcess(active(), k, pl.excess, pl.to);
+    journal(`Rebalans transzy ${k + 1} (sygnał ${plDate(pl.date)}): ${parts.join(', ') || 'bez zmian'}${moved ? `; nadwyżka ${pln(moved)} → transza ${pl.to + 1}` : ''}.`);
     savePF();
     renderPortfolio();
 }
@@ -836,10 +842,10 @@ function renderBacktest() {
 
     const yr = E.yearlyReturns(res.dates, [res.twr, res.bench, ...res.trTwr]);
     out.append(panel('Stopy zwrotu w latach', 'pierwszy i ostatni rok mogą być niepełne',
-        table(['Rok', '>Strategia', '>' + b, '>Różnica', '>T1', '>T2', '>T3'], yr.map(r => h('tr', {},
+        table(['Rok', '>Strategia', '>' + b, '>Różnica', ...res.trTwr.map((_, k) => `>T${k + 1}`)], yr.map(r => h('tr', {},
             td(String(r.year)), h('td', { class: 'num' }, h('b', {}, pct(r.vals[0]))), td(pct(r.vals[1]), true),
             td(Number.isFinite(r.vals[1]) ? nf((r.vals[0] - r.vals[1]) * 100, 1) + ' pp' : '–', true),
-            td(pct(r.vals[2]), true), td(pct(r.vals[3]), true), td(pct(r.vals[4]), true))))));
+            res.trTwr.map((_, k) => td(pct(r.vals[k + 2]), true)))))));
 
     out.append(panel('Transze osobno', null,
         table(['Transza', 'Miesiące', '>CAGR', '>Obsunięcie', '>Wartość końcowa', 'Skład na koniec'], res.final.map((tr, k) => {
@@ -852,7 +858,7 @@ function renderBacktest() {
     out.append(panel(`Dziennik transakcji`, `${res.trades.length} pozycji`,
         table(['Data', 'Transza', 'Operacja', 'Spółka', '>Akcje', '>Kurs', '>Wartość', '>Prowizja'], res.trades.slice().reverse().map(x => h('tr', {},
             td(plDate(x.date)), td(`T${x.k + 1}`),
-            h('td', { class: x.side === 'buy' ? 'side-buy' : x.side === 'sell' ? 'side-sell' : '' }, x.side === 'buy' ? 'KUP' : x.side === 'sell' ? 'SPRZEDAJ' : `nadwyżka → T${(x.k + 1) % TRANCHES + 1}`),
+            h('td', { class: x.side === 'buy' ? 'side-buy' : x.side === 'sell' ? 'side-sell' : '' }, x.side === 'buy' ? 'KUP' : x.side === 'sell' ? 'SPRZEDAJ' : `nadwyżka → T${x.to + 1}`),
             h('td', {}, x.t ? tk(x.t) : ''), td(x.shares ? String(x.shares) : '', true), td(nf(x.price), true), td(nf(x.value), true), td(x.fee ? nf(x.fee) : '', true))), 'scroll')));
 }
 
@@ -871,7 +877,8 @@ const PARAM_UI = [
     ['commPct', 'Prowizja (%)', 'num'],
     ['commMin', 'Prowizja minimalna (zł)', 'num'],
     ['signalSession', 'Sygnał po sesji nr (transakcje na następnej)', 'int'],
-    ['carryExcess', 'Nadwyżkę ponad 1/3 portfela przenoś do kolejnej transzy', 'bool'],
+    ['monthlyTranche', 'Czwarta transza rebalansowana co miesiąc', 'bool'],
+    ['carryExcess', 'Nadwyżkę ponad równą część portfela przenoś do następnej transzy', 'bool'],
     ['riseFilterHeld', 'Filtr wzrostu stosuj też do spółek już trzymanych', 'bool'],
 ];
 const PARAM_MIN = { momShort: 10, momLong: 10, riseDays: 1, slots: 1, volDays: 2, signalSession: 1, commPct: 0, commMin: 0 };
@@ -906,6 +913,7 @@ function paramsChanged() {
     PLAN = null;
     saveState();
     renderParams();
+    renderNotices();
     renderRanking();
     renderPortfolio();
 }
@@ -965,9 +973,9 @@ async function init() {
         if (!(amt > 0)) return;
         const target = $('#dep-target').value;
         if (target === 'all') {
-            const part = Math.floor(amt / TRANCHES * 100) / 100;
-            PF.tranches.forEach((tr, k) => { tr.cash += k === TRANCHES - 1 ? amt - part * (TRANCHES - 1) : part; });
-            journal(`Wpłata ${pln(amt)} podzielona po równo na ${TRANCHES} transze.`);
+            const n = nT(), part = Math.floor(amt / n * 100) / 100;
+            active().forEach((tr, k) => { tr.cash += k === n - 1 ? amt - part * (n - 1) : part; });
+            journal(`Wpłata ${pln(amt)} podzielona po równo na ${n} transze.`);
         } else {
             PF.tranches[+target].cash += amt;
             journal(`Wpłata ${pln(amt)} do transzy ${+target + 1}.`);

@@ -16,7 +16,7 @@
         <div class="masthead-top">
             <div class="brand">
                 <span class="brand-name">Momentum GPW</span>
-                <span class="brand-meta">IKZE · 3 transze · WIG140</span>
+                <span class="brand-meta">IKZE · 4 transze · WIG140</span>
             </div>
             <div class="account" id="account"></div>
         </div>
@@ -64,10 +64,11 @@
                         <label class="field">Kwota (zł) <input type="number" id="dep-amount" min="0" step="0.01"></label>
                         <label class="field">Przydział
                             <select id="dep-target">
-                                <option value="all">Po równo do trzech transz</option>
+                                <option value="all">Po równo do wszystkich transz</option>
                                 <option value="0">Transza 1</option>
                                 <option value="1">Transza 2</option>
                                 <option value="2">Transza 3</option>
+                                <option value="3">Transza 4 (miesięczna)</option>
                             </select>
                         </label>
                     </div>
@@ -119,7 +120,7 @@
                     <label class="field">Od <input type="date" id="bt-start"></label>
                     <label class="field">Do (puste = koniec danych) <input type="date" id="bt-end"></label>
                     <label class="field">Kapitał początkowy (zł) <input type="number" id="bt-capital" min="0" step="100" value="100000"></label>
-                    <label class="field wide"><span>Wpłaty w trakcie: jedna na linię, <code>RRRR-MM-DD kwota</code>, dzielone po równo na trzy transze</span>
+                    <label class="field wide"><span>Wpłaty w trakcie: jedna na linię, <code>RRRR-MM-DD kwota</code>, dzielone po równo na wszystkie transze</span>
                         <textarea id="bt-deposits" rows="3" placeholder="2025-01-02 15611&#10;2026-01-02 16956"></textarea>
                     </label>
                 </div>
@@ -193,10 +194,10 @@
                         <li><div><b>Momentum.</b> Regresja wykładnicza kursu (regresja liniowa logarytmu) dla 125 i 250 sesji. Roczne tempo wzrostu w % mnożone przez R². Wynik to średnia z obu okresów.</div></li>
                         <li><div><b>Próg.</b> Kupowane są tylko spółki z momentum co najmniej 20.</div></li>
                         <li><div><b>Filtr wzrostu.</b> Nie kupuj spółek, które wzrosły o ponad 30% w ostatnich 90 sesjach.</div></li>
-                        <li><div><b>Transze.</b> Kapitał w trzech transzach po około 1/3, każda zarządzana osobno, w każdej najwyżej 5 spółek. Gdy warunki spełnia mniej spółek, reszta zostaje w gotówce.</div></li>
+                        <li><div><b>Transze.</b> Kapitał w czterech transzach podobnej wielkości (po około 1/4): trzy rebalansowane co kwartał i jedna co miesiąc, dla większego rozproszenia ryzyka i szybszej reakcji na zmiany rynku. Każda zarządzana osobno, w każdej najwyżej 5 spółek. Gdy warunki spełnia mniej spółek, reszta zostaje w gotówce.</div></li>
                         <li><div><b>Wagi.</b> Parytet ryzyka. Zmienność odwrócona <code>1/(ATR50/P)</code> standaryzowana do z-score i ucięta do ±2. Ocena wynosi <code>1+z</code> dla z &gt; 0, a w przeciwnym razie <code>1/(1−z)</code>. Wagi są proporcjonalne do ocen.</div></li>
-                        <li><div><b>Kalendarz.</b> Każda transza co 3 miesiące. T1: luty, maj, sierpień, listopad. T2: marzec, czerwiec, wrzesień, grudzień. T3: kwiecień, lipiec, październik, styczeń. Sygnał po 9. sesji miesiąca, transakcje na 10. sesji po kursie zamknięcia.</div></li>
-                        <li><div><b>Nadwyżka.</b> Gdy rebalansowana transza przekracza 1/3 portfela, nadwyżka gotówki przechodzi do kolejnej transzy.</div></li>
+                        <li><div><b>Kalendarz.</b> Transze kwartalne co 3 miesiące. T1: luty, maj, sierpień, listopad. T2: marzec, czerwiec, wrzesień, grudzień. T3: kwiecień, lipiec, październik, styczeń. T4 co miesiąc. Sygnał po 9. sesji miesiąca, transakcje na 10. sesji po kursie zamknięcia.</div></li>
+                        <li><div><b>Nadwyżka.</b> Gdy rebalansowana transza przekracza swoją część portfela (1/4), nadwyżka gotówki przechodzi do transzy, która rebalansuje się jako następna.</div></li>
                         <li><div><b>Bez stop-lossów i filtra rynku.</b> Wolna gotówka zostaje na rachunku. Prowizja 0,5%, minimum 5 zł.</div></li>
                     </ol>
                 </div>

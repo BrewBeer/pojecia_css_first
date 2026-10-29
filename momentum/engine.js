@@ -25,9 +25,13 @@ const DEFAULT_PARAMS = {
     signalSession: 9,
     carryExcess: true,
     riseFilterHeld: false,
+    monthlyTranche: true,
 };
+// trzy transze kwartalne (przesunięte o miesiąc) + opcjonalna czwarta rebalansowana co miesiąc
 const TRANCHES = 3;
-const TRANCHE_MONTHS = [[2, 5, 8, 11], [3, 6, 9, 12], [4, 7, 10, 1]];
+const MAX_TRANCHES = 4;
+const MONTHLY = 3;
+const TRANCHE_MONTHS = [[2, 5, 8, 11], [3, 6, 9, 12], [4, 7, 10, 1], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]];
 const STALE_DAYS = 10;
 
 // okresy do stres-testu na danych historycznych
@@ -312,6 +316,10 @@ function createEngine(init = {}) {
     configure(init);
 
     const benchTicker = () => String(SET.bench || '').trim().toUpperCase();
+    const trancheCount = () => P.monthlyTranche ? MAX_TRANCHES : TRANCHES;
+    const tranchesForMonth = m => P.monthlyTranche ? [trancheOfMonth(m), MONTHLY] : [trancheOfMonth(m)];
+    // transza, która rebalansuje się jako następna po k: kolejna kwartalna albo (dla miesięcznej) kwartalna z następnego miesiąca
+    const nextTranche = (k, date) => k < TRANCHES ? (k + 1) % TRANCHES : trancheOfMonth(Math.floor(date / 100) % 100 % 12 + 1);
     const manualList = () => DATA.demo ? [] : parseTickers(SET.universe);
 
     // skład uniwersum na dzień: lista ręczna > historia składu WIG140 z danych > wszystkie serie
@@ -481,7 +489,7 @@ function createEngine(init = {}) {
         }
         const rankPos = new Map(rk.top.map((r, j) => [r.t, j]));
         orders.sort((a, b) => a.side !== b.side ? (a.side === 'sell' ? -1 : 1) : (rankPos.get(a.t) ?? 99) - (rankPos.get(b.t) ?? 99));
-        return { k, date, vals, total, V, excess, invest, rk, target, orders };
+        return { k, date, vals, total, V, excess, invest, rk, target, orders, to: nextTranche(k, date) % trs.length };
     }
 
     function executeOrders(tr, orders, priceFn, onTrade) {
@@ -508,22 +516,22 @@ function createEngine(init = {}) {
         }
     }
 
-    function transferExcess(trs, k, amount) {
+    function transferExcess(trs, k, amount, to = (k + 1) % trs.length) {
         const amt = Math.min(amount, Math.max(0, trs[k].cash));
-        if (amt < 0.01) return 0;
+        if (amt < 0.01 || to === k) return 0;
         trs[k].cash -= amt;
-        trs[(k + 1) % trs.length].cash += amt;
+        trs[to].cash += amt;
         return amt;
     }
 
-    // indeks sesji wykonania -> numer transzy
+    // indeks sesji wykonania -> numery transz rebalansowanych tego dnia
     function rebalanceSchedule(c = calendar()) {
         const map = new Map();
         let month = -1, cnt = 0;
         for (let i = 0; i < c.length; i++) {
             const mk = Math.floor(c[i] / 100);
             if (mk !== month) { month = mk; cnt = 0; }
-            if (++cnt === P.signalSession && i + 1 < c.length) map.set(i + 1, trancheOfMonth(mk % 100));
+            if (++cnt === P.signalSession && i + 1 < c.length) map.set(i + 1, tranchesForMonth(mk % 100));
         }
         return map;
     }
@@ -531,7 +539,7 @@ function createEngine(init = {}) {
     function nextRebalance(k, from) {
         let y = Math.floor(from / 10000), m = Math.floor(from / 100) % 100;
         for (let step = 0; step < 14; step++) {
-            if (trancheOfMonth(m) === k) {
+            if (k === MONTHLY || trancheOfMonth(m) === k) {
                 const sess = sessionsOfMonth(y, m);
                 const sig = sess[P.signalSession - 1], exe = sess[P.signalSession];
                 if (exe && exe >= from) return { sig, exe };
@@ -549,7 +557,8 @@ function createEngine(init = {}) {
         if (s >= c.length || e <= s) throw new Error('Brak sesji w wybranym zakresie dat.');
         const sched = rebalanceSchedule(c);
         const capital = cfg.capital || 0;
-        const trs = Array.from({ length: TRANCHES }, () => ({ cash: capital / TRANCHES, pos: {} }));
+        const N = trancheCount();
+        const trs = Array.from({ length: N }, () => ({ cash: capital / N, pos: {} }));
         const deps = (cfg.deposits || []).slice().sort((a, b) => a.date - b.date);
         const bt = benchTicker();
         const out = { dates: [], value: [], twr: [], bench: [], cashPct: [], trTwr: trs.map(() => []), trades: [], fees: 0, deposited: capital, rebalances: 0 };
@@ -563,21 +572,20 @@ function createEngine(init = {}) {
             while (dp < deps.length && deps[dp].date <= date) {
                 const a = deps[dp++].amount;
                 dep += a;
-                trs.forEach((tr, k) => { tr.cash += a / TRANCHES; flows[k] += a / TRANCHES; });
+                trs.forEach((tr, k) => { tr.cash += a / N; flows[k] += a / N; });
             }
             out.deposited += dep;
-            if (sched.has(t)) {
-                const k = sched.get(t);
+            for (const k of sched.get(t) || []) {
                 const plan = planTranche(trs, k, c[t - 1]);
                 executeOrders(trs[k], plan.orders, tk => priceAt(tk, date), x => {
                     out.trades.push({ date, k, ...x });
                     out.fees += x.fee;
                 });
-                const moved = transferExcess(trs, k, plan.excess);
+                const moved = transferExcess(trs, k, plan.excess, plan.to);
                 if (moved) {
                     flows[k] -= moved;
-                    flows[(k + 1) % TRANCHES] += moved;
-                    out.trades.push({ date, k, side: 'transfer', t: '', shares: 0, price: NaN, value: moved, fee: 0 });
+                    flows[plan.to] += moved;
+                    out.trades.push({ date, k, to: plan.to, side: 'transfer', t: '', shares: 0, price: NaN, value: moved, fee: 0 });
                 }
                 out.rebalances++;
             }
@@ -609,14 +617,14 @@ function createEngine(init = {}) {
         get params() { return P; },
         get data() { return DATA; },
         get settings() { return SET; },
-        benchTicker, universeAt, universeSource, manualList, calendar, priceAt, sessionNumber,
+        benchTicker, trancheCount, tranchesForMonth, nextTranche, universeAt, universeSource, manualList, calendar, priceAt, sessionNumber,
         momentumScore, volatility, stockStats, rankAt, fee, trancheValue,
         planTranche, executeOrders, transferExcess, rebalanceSchedule, nextRebalance, runBacktest,
     };
 }
 
 return {
-    DEFAULT_PARAMS, TRANCHES, TRANCHE_MONTHS, STALE_DAYS, CRISES,
+    DEFAULT_PARAMS, TRANCHES, MAX_TRANCHES, MONTHLY, TRANCHE_MONTHS, STALE_DAYS, CRISES,
     ymd, toDate, pad2, iso, plDate, fromIso, daysBetween, addDays, lastIdx, parseTickers, trancheOfMonth,
     easter, gpwHolidays, isSession, sessionsOfMonth, parseDate, parseStooq, decodePack, encodeSeries,
     perfStats, drawdown, yearlyReturns, windowStats, makeDemo, createEngine,

@@ -25,22 +25,44 @@ test('bessa: gdy wszystko spada, portfel zostaje w gotówce bez transakcji', () 
     assert.ok(res.cashPct.every(x => x === 1));
 });
 
-test('harmonogram: transakcje tylko na 10. sesji miesiąca, każda transza co 3 miesiące', () => {
+const monthGap = (a, b) => (Math.floor(b / 100) - Math.floor(a / 100)) * 12 + (b % 100) - (a % 100);
+
+test('harmonogram: transakcje tylko na 10. sesji, transze kwartalne co 3 miesiące, miesięczna co miesiąc', () => {
     const data = { WIG: flat(), A: series(dates, path(N, { annual: 0.5, noise: 0.005, seed: 3 })) };
     const eng = engine(data);
     const cal = eng.calendar();
     const sched = eng.rebalanceSchedule(cal);
-    for (const [i, k] of sched) {
+    for (const [i, ks] of sched) {
         assert.equal(eng.sessionNumber(cal[i]), 10);
-        assert.equal(E.trancheOfMonth(Math.floor(cal[i] / 100) % 100), k);
+        assert.deepEqual(ks, [E.trancheOfMonth(Math.floor(cal[i] / 100) % 100), E.MONTHLY]);
     }
-    const byTranche = [0, 1, 2].map(k => [...sched].filter(([, x]) => x === k).map(([i]) => Math.floor(cal[i] / 100)));
-    for (const months of byTranche) {
-        for (let j = 1; j < months.length; j++) {
-            const a = months[j - 1], b = months[j];
-            assert.equal((Math.floor(b / 100) - Math.floor(a / 100)) * 12 + (b % 100) - (a % 100), 3);
-        }
+    for (const [k, gap] of [[0, 3], [1, 3], [2, 3], [E.MONTHLY, 1]]) {
+        const months = [...sched].filter(([, ks]) => ks.includes(k)).map(([i]) => Math.floor(cal[i] / 100));
+        for (let j = 1; j < months.length; j++) assert.equal(monthGap(months[j - 1], months[j]), gap, `transza ${k + 1}`);
     }
+});
+
+test('cztery transze: portfel dzielony na 4 równe części, transza miesięczna handluje co miesiąc', () => {
+    const data = { WIG: flat() };
+    for (let k = 0; k < 8; k++) data['S' + k] = series(dates, path(N, { annual: 0.25 + k * 0.05, noise: 0.012, seed: 30 + k }));
+    const eng = engine(data);
+    let first = null;
+    const res = eng.runBacktest({ start: dates[260], capital: 100000, onDay: (d, trs) => { first ||= trs.map(tr => tr.cash); invariantHook(eng)(d, trs, 1); } });
+    assert.equal(res.final.length, 4);
+    assert.deepEqual(first, [25000, 25000, 25000, 25000]);
+    const months = [...new Set(res.trades.filter(x => x.k === E.MONTHLY && x.side !== 'transfer').map(x => Math.floor(x.date / 100)))];
+    assert.ok(months.length >= res.dates.length / 21 * 0.5, 'transza miesięczna zmienia skład regularnie');
+    for (const x of res.trades.filter(x => x.side === 'transfer' && x.k === E.MONTHLY)) {
+        assert.equal(x.to, E.trancheOfMonth(Math.floor(x.date / 100) % 100 % 12 + 1), 'nadwyżka do transzy kwartalnej z następnego miesiąca');
+    }
+});
+
+test('tryb trzech transz (bez miesięcznej) nadal działa', () => {
+    const data = { WIG: flat(), A: series(dates, path(N, { annual: 0.5, noise: 0.005, seed: 3 })) };
+    const eng = engine(data, { monthlyTranche: false });
+    const res = eng.runBacktest({ start: dates[260], capital: 90000 });
+    assert.equal(res.final.length, 3);
+    assert.ok([...eng.rebalanceSchedule().values()].every(ks => ks.length === 1));
 });
 
 test('wpłaty nie zmieniają stopy zwrotu ważonej czasem (TWR)', () => {

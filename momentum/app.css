@@ -22,6 +22,7 @@
     --series-3: #1baf7a;
     --series-4: #eda100;
     --series-5: #e87ba4;
+    --series-6: #008300;
     --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
@@ -49,6 +50,7 @@
         --series-3: #199e70;
         --series-4: #c98500;
         --series-5: #d55181;
+        --series-6: #008300;
     }
 }
 :root[data-theme="dark"] {
@@ -74,6 +76,7 @@
     --series-3: #199e70;
     --series-4: #c98500;
     --series-5: #d55181;
+    --series-6: #008300;
 }
 
 /* ---------- podstawy */
@@ -278,7 +281,8 @@ footer { border-top: 1px solid var(--rule); padding: 18px 0 40px; font-size: 12.
 .split .panel { margin: 0; }
 @media (min-width: 900px) { .split { grid-template-columns: 2fr 1fr; } }
 
-.figure-value { white-space: nowrap; font-size: clamp(18px, 4.8vw, 24px); }
+.figure-value { white-space: nowrap; font-size: clamp(17px, 1.75vw, 23px); }
+.figures { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
 @media (max-width: 520px) {
     .brand-meta, .account > span:not(.dot) { display: none; }
     h1 { font-size: 26px; }

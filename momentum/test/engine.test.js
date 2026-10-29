@@ -21,7 +21,8 @@ test('momentum: szum obniża wynik przez R², spadek daje wynik ujemny', () => {
 });
 
 test('transze: luty/maj/sie/lis → T1, marzec/cze/wrz/gru → T2, kwiecień/lip/paź/sty → T3', () => {
-    E.TRANCHE_MONTHS.forEach((months, k) => months.forEach(m => assert.equal(E.trancheOfMonth(m), k)));
+    E.TRANCHE_MONTHS.slice(0, E.TRANCHES).forEach((months, k) => months.forEach(m => assert.equal(E.trancheOfMonth(m), k)));
+    assert.equal(E.TRANCHE_MONTHS[E.MONTHLY].length, 12, 'transza miesięczna: każdy miesiąc');
 });
 
 test('kalendarz GPW: Wielkanoc, Boże Ciało, 11 listopada, Wigilia', () => {
@@ -39,6 +40,8 @@ test('harmonogram: następny rebalans każdej transzy', () => {
     assert.deepEqual(eng.nextRebalance(0, 20261029), { sig: 20261113, exe: 20261116 });
     assert.deepEqual(eng.nextRebalance(1, 20261029), { sig: 20261211, exe: 20261214 });
     assert.equal(Math.floor(eng.nextRebalance(2, 20261029).exe / 100), 202701);
+    assert.deepEqual(eng.nextRebalance(E.MONTHLY, 20261029), { sig: 20261113, exe: 20261116 });
+    assert.deepEqual(eng.nextRebalance(E.MONTHLY, 20261117), eng.nextRebalance(1, 20261117));
 });
 
 test('import Stooq: CSV ze strony i TXT z paczki, błędne wiersze pomijane', () => {
