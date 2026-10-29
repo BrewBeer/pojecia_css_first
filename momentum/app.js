@@ -468,7 +468,7 @@ function renderMarket() {
     const list = [{ t: eng.benchTicker(), name: eng.benchTicker() }, ...eng.benchmarks()].filter(x => eng.data.series[x.t]);
     if (!list.length || !ANALYSIS) return;
     const y = Math.floor(ANALYSIS / 10000);
-    const ret = (t, from) => { const a = eng.priceAt(t, from), b = eng.priceAt(t, ANALYSIS); return a > 0 && b > 0 ? b / a - 1 : NaN; };
+    const ret = (t, from) => { const a = eng.priceAt(t, from, E.STALE_DAYS), b = eng.priceAt(t, ANALYSIS, E.STALE_DAYS); return a > 0 && b > 0 ? b / a - 1 : NaN; };
     const periods = [['Od początku roku', (y - 1) * 10000 + 1231], ['3 miesiące', E.addDays(ANALYSIS, -91)], ['12 miesięcy', E.addDays(ANALYSIS, -365)]];
     host.append(panel('Rynek i benchmarki', 'stopy zwrotu w złotych, z dywidendami',
         table(['Benchmark', ...periods.map(p => '>' + p[0])], list.map(x => h('tr', {}, h('td', {}, h('b', {}, x.name)), periods.map(([, from]) => td(pct(ret(x.t, from)), true)))))));
@@ -868,7 +868,7 @@ function renderBacktest() {
     }).filter(Boolean);
     out.append(panel('Porównanie z benchmarkami', 'każdy wiersz liczony od pierwszego notowania benchmarku w okresie symulacji, ceny w złotych',
         table(['Benchmark', 'Od', '>Wynik łącznie', '>CAGR', '>Obsunięcie', '>CAGR strategii', '>Obsunięcie strategii', '>Przewaga'], cmp),
-        ext.length < 3 ? h('p', { class: 'small muted', style: 'margin:12px 0 0' }, 'Fundusze Vanguard pojawią się po dodaniu paczek Stooq dla Niemiec (d_de_txt) i walut (d_world_txt) i uruchomieniu npm run update.') : null));
+        ext.length < 3 ? h('p', { class: 'small muted', style: 'margin:12px 0 0' }, 'Brakujące fundusze pojawią się po uruchomieniu npm run update (notowania ETF pobierane są z Yahoo Finance).') : null));
 
     const crisisRows = E.CRISES.map(([name, from, to]) => {
         const w = E.windowStats(res, from, to);

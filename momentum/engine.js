@@ -356,11 +356,12 @@ function createEngine(init = {}) {
         return (cal = Int32Array.from([...set].sort((a, b) => a - b)));
     }
 
-    function priceAt(t, date) {
+    // maxAge: dla benchmarków — kurs starszy niż tyle dni to brak danych, a nie płaska linia
+    function priceAt(t, date, maxAge = Infinity) {
         const s = DATA.series[t];
         if (!s) return NaN;
         const i = lastIdx(s.d, date);
-        return i < 0 ? NaN : s.c[i];
+        return i < 0 || daysBetween(s.d[i], date) > maxAge ? NaN : s.c[i];
     }
 
     function sessionNumber(date) {
@@ -602,13 +603,13 @@ function createEngine(init = {}) {
             });
             prevV = V;
             prevTV = tv;
-            const bp = priceAt(bt, date);
+            const bp = priceAt(bt, date, STALE_DAYS);
             if (!(b0 > 0) && bp > 0) b0 = bp;
             out.dates.push(date);
             out.value.push(V);
             out.twr.push(idx);
             out.bench.push(bp > 0 && b0 > 0 ? 100 * bp / b0 : NaN);
-            for (const x of out.extra) x.values.push(priceAt(x.t, date));
+            for (const x of out.extra) x.values.push(priceAt(x.t, date, STALE_DAYS));
             out.cashPct.push(V > 0 ? trs.reduce((a, tr) => a + tr.cash, 0) / V : 1);
             cfg.onDay?.(date, trs, V);
         }

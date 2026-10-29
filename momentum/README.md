@@ -9,24 +9,36 @@ WIG140, trzy transze rebalansowane co kwartał, ranking z regresji wykładniczej
 | `engine.js` | reguły strategii: ranking, wagi, plan rebalansu, symulacja |
 | `app.js`, `app.css` | interfejs |
 | `sync.js`, `config.js` | synchronizacja portfela przez Supabase |
-| `scripts/update-data.mjs` | przetwarzanie paczki Stooq i wyznaczanie składu WIG140 |
+| `scripts/update-data.mjs` | aktualizacja notowań (Yahoo Finance lub paczka Stooq) i wyznaczanie składu WIG140 |
+| `scripts/yahoo.mjs` | pobieranie notowań dziennych z Yahoo Finance |
 | `data/live.json`, `data/history.json` | notowania dla aplikacji (generowane) |
 | `data/wig140.txt` | opcjonalna oficjalna lista WIG140 (nadpisuje przybliżenie) |
 | `test/` | testy jednostkowe, scenariusze, stres-testy, backtest na historii |
 
 ## Cotygodniowa aktualizacja danych
 
-Stooq blokuje automatyczne pobieranie, więc paczkę pobierasz ręcznie w przeglądarce, a resztę robi skrypt.
+Na co dzień nic nie trzeba pobierać ręcznie:
+
+```
+npm run update -- --push
+```
+
+Skrypt dociąga brakujące sesje z Yahoo Finance (publiczne API, bez klucza, około 20 sekund), zapisuje dane do `momentum/data/`, uruchamia testy, robi commit i push. GitHub Actions jeszcze raz uruchomi testy i opublikuje stronę. Bez `--push` tylko aktualizuje pliki.
+
+Zabezpieczenia przed błędami Yahoo:
+
+- Gdy Yahoo nie ma kursu z danej sesji, wpisuje poprzednie zamknięcie z wolumenem 0. Takie sesje są odrzucane.
+- Sesja, którą Yahoo ma dla mniej niż połowy spółek, jest pomijana w całości.
+- Nowe kursy są wyrównywane do historii Stooq medianą z ostatnich wspólnych sesji, więc dywidenda lub split po ostatniej paczce nie psuje ciągłości.
+- Dzisiejsza sesja wchodzi dopiero po 18:00.
+
+Raz na kwartał potrzebna jest paczka Stooq, bo tylko ona ma historię kapitalizacji do rewizji składu. Skrypt sam przypomni o tym w logu. Paczka uzupełnia też dzienne notowania indeksu WIG, których Yahoo nie ma. Stooq blokuje automatyczne pobieranie, więc:
 
 1. Na [stooq.pl/db/h](https://stooq.pl/db/h/) pobierz dane dzienne dla Polski w formacie ASCII (`d_pl_txt.zip`).
 2. Zostaw plik w folderze projektu albo w Pobranych.
-3. Uruchom:
+3. Uruchom `npm run update -- --stooq --push`.
 
-   ```
-   npm run update -- --push
-   ```
-
-Skrypt rozpakuje paczkę, wyznaczy kwartalny skład WIG140 i zapisze dane do `momentum/data/`. Potem uruchomi testy, zrobi commit i push. GitHub Actions jeszcze raz uruchomi testy i opublikuje stronę.
+Benchmarki ETF (BETA ETF WIG20TR, Vanguard S&P 500 i FTSE All-World) zawsze pochodzą z Yahoo Finance. Kursy w euro są przeliczane na złote kursem EURPLN.
 
 Skład WIG140 jest przybliżony rankingiem kapitalizacji i rocznych obrotów, bo w danych Stooq nie ma free floatu, którego używa GPW. Bieżące przybliżenie zapisuje się w `data/wig140-auto.txt`. Żeby użyć oficjalnego składu z GPW Benchmark (indeks WIG140, ISIN PL9999998377), wklej tickery do `data/wig140.txt`.
 
