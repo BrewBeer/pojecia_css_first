@@ -1,0 +1,5 @@
+# paczka notowań Stooq (ok. 200 MB) — przetwarzana lokalnie przez npm run update
+d_pl_txt.zip
+d_pl_txt*.zip
+d_pl_txt/
+node_modules/

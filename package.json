@@ -1,0 +1,13 @@
+{
+  "name": "momentum-gpw",
+  "private": true,
+  "description": "Strategia momentum GPW (3 transze, IKZE) — aplikacja, dane i testy",
+  "scripts": {
+    "update": "node momentum/scripts/update-data.mjs",
+    "test": "node --test \"momentum/test/*.test.js\"",
+    "test:history": "node --test momentum/test/history.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

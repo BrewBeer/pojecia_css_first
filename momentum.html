@@ -3,1670 +3,240 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Portfel IKZE według strategii momentum dla GPW: trzy transze, ranking z regresji wykładniczej, parytet ryzyka.">
 <title>Momentum GPW</title>
-<style>
-:root {
-    color-scheme: light;
-    --bg: #f4f4f1;
-    --surface: #fcfcfb;
-    --surface-2: #f0efec;
-    --border: #e0dfd9;
-    --grid: #e8e7e2;
-    --text: #0b0b0b;
-    --text-2: #52514e;
-    --text-3: #78776f;
-    --accent: #2a78d6;
-    --accent-ink: #ffffff;
-    --accent-soft: #e4eefb;
-    --series-1: #2a78d6;
-    --series-2: #eb6834;
-    --series-3: #1baf7a;
-    --series-4: #eda100;
-    --series-5: #e87ba4;
-    --good: #17703a;
-    --good-bg: #e3f3e8;
-    --bad: #b3261e;
-    --bad-bg: #fbe9e7;
-    --warn: #7d5700;
-    --warn-bg: #fbf0d5;
-}
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-        color-scheme: dark;
-        --bg: #121211;
-        --surface: #1a1a19;
-        --surface-2: #242422;
-        --border: #34342f;
-        --grid: #2a2a27;
-        --text: #f0efec;
-        --text-2: #c3c2b7;
-        --text-3: #929187;
-        --accent: #3987e5;
-        --accent-ink: #ffffff;
-        --accent-soft: #1b2a3d;
-        --series-1: #3987e5;
-        --series-2: #d95926;
-        --series-3: #199e70;
-        --series-4: #c98500;
-        --series-5: #d55181;
-        --good: #5cc983;
-        --good-bg: #16301f;
-        --bad: #ff8a80;
-        --bad-bg: #3a1d1a;
-        --warn: #e6b84a;
-        --warn-bg: #33290f;
-    }
-}
-:root[data-theme="dark"] {
-    color-scheme: dark;
-    --bg: #121211;
-    --surface: #1a1a19;
-    --surface-2: #242422;
-    --border: #34342f;
-    --grid: #2a2a27;
-    --text: #f0efec;
-    --text-2: #c3c2b7;
-    --text-3: #929187;
-    --accent: #3987e5;
-    --accent-ink: #ffffff;
-    --accent-soft: #1b2a3d;
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #199e70;
-    --series-4: #c98500;
-    --series-5: #d55181;
-    --good: #5cc983;
-    --good-bg: #16301f;
-    --bad: #ff8a80;
-    --bad-bg: #3a1d1a;
-    --warn: #e6b84a;
-    --warn-bg: #33290f;
-}
-
-* { box-sizing: border-box; }
-body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-}
-.wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
-header.top { background: var(--surface); border-bottom: 1px solid var(--border); }
-header.top .wrap { padding-top: 20px; }
-h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
-h1 .tag {
-    font-size: 12px; font-weight: 600; color: var(--text-2);
-    background: var(--surface-2); border: 1px solid var(--border);
-    border-radius: 999px; padding: 2px 8px; vertical-align: middle; margin-left: 6px;
-}
-h2 { font-size: 18px; margin: 20px 0 10px; }
-h3 { font-size: 15px; margin: 0 0 8px; }
-.sub { margin: 0 0 10px; color: var(--text-2); max-width: 820px; }
-.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
-.tabs button {
-    appearance: none; border: 0; background: none; color: var(--text-2);
-    font: inherit; font-weight: 600; padding: 10px 12px; cursor: pointer; white-space: nowrap;
-    border-bottom: 2px solid transparent;
-}
-.tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
-.anbar { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; padding: 12px 0 0; color: var(--text-2); font-size: 14px; }
-main { padding-bottom: 48px; }
-footer { color: var(--text-3); font-size: 12.5px; padding: 0 16px 32px; max-width: 1180px; margin: 0 auto; }
-
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin: 12px 0; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 8px; margin: 12px 0; }
-.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
-.tile-l { font-size: 12px; color: var(--text-2); }
-.tile-v { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 2px; }
-.tile-s { font-size: 12px; color: var(--text-3); }
-.cards3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 12px; margin: 12px 0; }
-.cards3 .card { margin: 0; display: flex; flex-direction: column; gap: 8px; }
-.cards3 .card > .btn { align-self: flex-start; margin-top: auto; }
-.big { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
-
-.table-wrap { overflow-x: auto; }
-table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
-table.data th, table.data td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
-table.data th { font-weight: 600; color: var(--text-2); font-size: 12px; position: sticky; top: 0; background: var(--surface); }
-table.data .num { text-align: right; }
-table.data tr.is-top td { background: var(--accent-soft); }
-.scroll { max-height: 420px; overflow: auto; }
-
-input, select, textarea {
-    font: inherit; color: var(--text); background: var(--surface);
-    border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; max-width: 100%;
-}
-input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-textarea { width: 100%; resize: vertical; }
-input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
-.in-sm { width: 96px; padding: 4px 6px; }
-td .in-sm { width: 72px; text-align: right; }
-.btn {
-    appearance: none; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
-    font: inherit; font-weight: 600; font-size: 14px; padding: 7px 14px; border-radius: 7px; cursor: pointer;
-}
-.btn.ghost { background: transparent; color: var(--text); border-color: var(--border); }
-.btn.sm { padding: 4px 10px; font-size: 13px; }
-.btn.danger { color: var(--bad); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.x { border: 0; background: none; color: var(--text-3); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
-.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; }
-.form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-2); }
-.form-grid label.check { flex-direction: row; align-items: center; gap: 8px; }
-.form-grid .span-all { grid-column: 1 / -1; }
-.form-row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 10px; }
-.form-row label { font-size: 13px; color: var(--text-2); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.form-row.tight { margin-top: 0; gap: 6px; }
-
-.muted { color: var(--text-2); }
-.small { font-size: 13px; }
-.note { font-size: 13px; color: var(--text-2); margin: 10px 0 0; }
-.row-between { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.kv { display: grid; grid-template-columns: auto auto; gap: 4px 18px; justify-content: start; margin: 0 0 12px; font-size: 14px; }
-.kv dt { color: var(--text-2); }
-.kv dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
-.banner { border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
-.banner.warn { background: var(--warn-bg); color: var(--warn); }
-.banner.info { background: var(--accent-soft); color: var(--text); }
-.badge { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 1px 8px; border-radius: 999px; }
-.b-top { background: var(--accent); color: var(--accent-ink); }
-.b-ok { background: var(--good-bg); color: var(--good); }
-.b-warn { background: var(--warn-bg); color: var(--warn); }
-.b-bad { background: var(--bad-bg); color: var(--bad); }
-.b-mute { background: var(--surface-2); color: var(--text-3); }
-.side-buy { color: var(--good); font-weight: 650; }
-.side-sell { color: var(--bad); font-weight: 650; }
-.journal { list-style: none; padding: 0; margin: 0; font-size: 13px; max-height: 260px; overflow: auto; }
-.journal li { padding: 6px 0; border-bottom: 1px solid var(--border); }
-.journal time { color: var(--text-3); margin-right: 8px; }
-.drop { border: 1.5px dashed var(--border); border-radius: 10px; padding: 18px; text-align: center; color: var(--text-2); margin-top: 12px; }
-.drop.over { border-color: var(--accent); background: var(--accent-soft); }
-.rules { padding-left: 20px; margin: 0; }
-.rules li { margin: 6px 0; }
-code { font-size: 0.92em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
-a { color: var(--accent); }
-
-.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--text-2); margin-bottom: 8px; }
-.legend i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; vertical-align: middle; margin-right: 6px; }
-.chart-box { position: relative; outline: none; touch-action: pan-y; }
-.chart-box canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.chart-box:focus-visible { box-shadow: 0 0 0 2px var(--accent); border-radius: 4px; }
-.tip {
-    position: absolute; pointer-events: none; z-index: 2; min-width: 150px;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-    padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
-}
-.tip-d { color: var(--text-2); margin-bottom: 4px; }
-.tip-r { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.tip-r i { width: 12px; height: 2px; border-radius: 1px; display: inline-block; }
-.tip-r b { font-variant-numeric: tabular-nums; color: var(--text); }
-.tip-r span { color: var(--text-2); }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="momentum/app.css">
 </head>
 <body>
-<header class="top">
+<header class="masthead">
     <div class="wrap">
-        <h1>Momentum GPW <span class="tag">3 transze · IKZE</span></h1>
-        <p class="sub">Budowa portfela akcji z WIG20, mWIG40 i sWIG80 według strategii z systemtrader.pl: ranking momentum z regresji wykładniczej, parytet ryzyka, trzy transze rebalansowane co kwartał.</p>
-        <nav class="tabs" role="tablist">
-            <button role="tab" data-tab="portfel">Mój portfel</button>
-            <button role="tab" data-tab="ranking">Ranking</button>
-            <button role="tab" data-tab="symulacja">Symulacja</button>
-            <button role="tab" data-tab="dane">Dane</button>
-            <button role="tab" data-tab="zasady">Zasady i parametry</button>
+        <div class="masthead-top">
+            <div class="brand">
+                <span class="brand-name">Momentum GPW</span>
+                <span class="brand-meta">IKZE · 3 transze · WIG140</span>
+            </div>
+            <div class="account" id="account"></div>
+        </div>
+        <nav class="nav" role="tablist">
+            <button role="tab" data-tab="portfel"><span class="idx">01</span>Portfel</button>
+            <button role="tab" data-tab="ranking"><span class="idx">02</span>Ranking</button>
+            <button role="tab" data-tab="symulacja"><span class="idx">03</span>Symulacja</button>
+            <button role="tab" data-tab="dane"><span class="idx">04</span>Dane</button>
+            <button role="tab" data-tab="zasady"><span class="idx">05</span>Zasady</button>
         </nav>
     </div>
 </header>
 
 <main class="wrap">
-    <div class="anbar">
-        <label>Sygnały i wycena na zamknięcie sesji: <input type="date" id="an-date"></label>
-        <span id="an-info" class="small"></span>
+    <div class="context">
+        <label>Sygnały i wycena na zamknięcie sesji <input type="date" id="an-date"></label>
+        <span id="an-info" class="faint"></span>
     </div>
-    <div id="demo-banner" class="banner warn" hidden>Wczytane są dane demonstracyjne (syntetyczne, spółki DEMO01–DEMO40). Służą wyłącznie do przetestowania aplikacji.</div>
+    <div id="notices"></div>
 
-    <!-- ===== Mój portfel ===== -->
-    <section id="tab-portfel" class="tab" hidden>
-        <div class="row-between">
-            <h2>Mój portfel</h2>
-            <span id="pf-date" class="muted small"></span>
-        </div>
-        <div id="pf-tiles"></div>
-        <div class="card">
-            <h3>Harmonogram rebalansowania</h3>
-            <div id="pf-calendar"></div>
-            <p class="note">Sygnał liczony po zamknięciu 9. sesji miesiąca, transakcje na 10. sesji po kursie zamknięcia. Daty przyszłe szacowane wg kalendarza sesji GPW (weekendy i święta).</p>
-        </div>
-        <div class="card">
-            <h3>Wpłata</h3>
-            <div class="form-row tight">
-                <label>Kwota (zł) <input type="number" id="dep-amount" min="0" step="0.01" class="in-sm"></label>
-                <label>Do
-                    <select id="dep-target">
-                        <option value="all">po równo do 3 transz</option>
-                        <option value="0">Transza 1</option>
-                        <option value="1">Transza 2</option>
-                        <option value="2">Transza 3</option>
-                    </select>
-                </label>
-                <button id="dep-add" class="btn sm">Dodaj wpłatę</button>
+    <!-- 01 Portfel -->
+    <section id="tab-portfel" hidden>
+        <div class="view-head">
+            <div>
+                <p class="eyebrow">01 — Portfel</p>
+                <h1>Mój portfel</h1>
             </div>
-            <p class="note">Gotówka czeka na koncie do najbliższego rebalansu danej transzy.</p>
+            <span id="pf-date" class="small muted"></span>
         </div>
-        <div id="pf-cards" class="cards3"></div>
+        <div id="pf-figures"></div>
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Harmonogram rebalansowania</h2>
+                <span class="meta">sygnał po 9. sesji miesiąca · transakcje na 10. sesji po kursie zamknięcia</span>
+            </div>
+            <div class="panel-body" id="pf-calendar"></div>
+        </section>
+        <div id="pf-cards" class="grid-3"></div>
         <div id="pf-plan"></div>
-        <div class="card">
-            <h3>Dziennik operacji</h3>
-            <ul id="pf-journal" class="journal"></ul>
-            <div class="form-row">
-                <button id="pf-export" class="btn ghost sm">Eksportuj portfel (JSON)</button>
-                <label class="btn ghost sm">Importuj portfel… <input type="file" id="pf-import" accept=".json,application/json" hidden></label>
-                <button id="pf-reset" class="btn ghost sm danger">Wyzeruj portfel</button>
-            </div>
+        <div class="grid-3">
+            <section class="panel">
+                <div class="panel-head"><h2>Wpłata</h2><span class="meta">gotówka czeka do rebalansu transzy</span></div>
+                <div class="panel-body">
+                    <div class="fields">
+                        <label class="field">Kwota (zł) <input type="number" id="dep-amount" min="0" step="0.01"></label>
+                        <label class="field">Przydział
+                            <select id="dep-target">
+                                <option value="all">Po równo do trzech transz</option>
+                                <option value="0">Transza 1</option>
+                                <option value="1">Transza 2</option>
+                                <option value="2">Transza 3</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="row" style="margin-top:16px"><button id="dep-add" class="btn">Dodaj wpłatę</button></div>
+                </div>
+            </section>
+            <section class="panel">
+                <div class="panel-head"><h2>Dziennik operacji</h2></div>
+                <div class="panel-body"><ul id="pf-journal" class="log"></ul></div>
+                <div class="panel-foot row">
+                    <button id="pf-export" class="btn text">Eksportuj (JSON)</button>
+                    <label class="btn text">Importuj… <input type="file" id="pf-import" accept=".json,application/json" hidden></label>
+                    <span class="spacer"></span>
+                    <button id="pf-reset" class="btn text danger">Wyzeruj portfel</button>
+                </div>
+            </section>
         </div>
     </section>
 
-    <!-- ===== Ranking ===== -->
-    <section id="tab-ranking" class="tab" hidden>
-        <h2>Ranking momentum</h2>
-        <div id="rk-summary"></div>
-        <div class="card">
-            <div class="table-wrap" id="rk-table"></div>
-            <p class="note">Ranking ogólny. Przy rebalansie transzy spółka, którą transza już trzyma, nie jest blokowana przez filtr wzrostu (filtr dotyczy kupowania); można to zmienić w parametrach.</p>
+    <!-- 02 Ranking -->
+    <section id="tab-ranking" hidden>
+        <div class="view-head">
+            <div>
+                <p class="eyebrow">02 — Ranking</p>
+                <h1>Ranking momentum</h1>
+                <p class="lead">Średnia z momentum 125 i 250 sesji. Do transzy trafia pięć najwyżej ocenionych spółek spełniających warunki.</p>
+            </div>
         </div>
+        <div id="rk-figures"></div>
+        <section class="panel">
+            <div class="panel-body"><div id="rk-table"></div></div>
+            <div class="panel-foot">Ranking ogólny. Przy rebalansie spółka, którą transza już trzyma, nie jest blokowana przez filtr wzrostu (filtr dotyczy zakupów). Można to zmienić w zakładce Zasady.</div>
+        </section>
     </section>
 
-    <!-- ===== Symulacja ===== -->
-    <section id="tab-symulacja" class="tab" hidden>
-        <h2>Symulacja historyczna</h2>
-        <div class="card">
-            <div class="form-grid">
-                <label>Od <input type="date" id="bt-start"></label>
-                <label>Do (puste = koniec danych) <input type="date" id="bt-end"></label>
-                <label>Kapitał początkowy (zł) <input type="number" id="bt-capital" min="0" step="100" value="100000"></label>
-                <label class="span-all"><span>Wpłaty w trakcie (jedna na linię: <code>RRRR-MM-DD kwota</code>, dzielone po równo na 3 transze)</span>
-                    <textarea id="bt-deposits" rows="3" placeholder="2025-01-02 15611&#10;2026-01-02 16956"></textarea>
-                </label>
+    <!-- 03 Symulacja -->
+    <section id="tab-symulacja" hidden>
+        <div class="view-head">
+            <div>
+                <p class="eyebrow">03 — Symulacja</p>
+                <h1>Backtest i stres-testy</h1>
+                <p class="lead">Te same reguły i parametry co w portfelu. Skład uniwersum zmienia się co kwartał tak, jak wynika z danych w danym momencie.</p>
             </div>
-            <div class="form-row">
+        </div>
+        <section class="panel">
+            <div class="panel-head"><h2>Ustawienia symulacji</h2><span class="meta" id="bt-source"></span></div>
+            <div class="panel-body">
+                <div class="fields">
+                    <label class="field">Od <input type="date" id="bt-start"></label>
+                    <label class="field">Do (puste = koniec danych) <input type="date" id="bt-end"></label>
+                    <label class="field">Kapitał początkowy (zł) <input type="number" id="bt-capital" min="0" step="100" value="100000"></label>
+                    <label class="field wide"><span>Wpłaty w trakcie: jedna na linię, <code>RRRR-MM-DD kwota</code>, dzielone po równo na trzy transze</span>
+                        <textarea id="bt-deposits" rows="3" placeholder="2025-01-02 15611&#10;2026-01-02 16956"></textarea>
+                    </label>
+                </div>
+            </div>
+            <div class="panel-foot row">
                 <button id="bt-run" class="btn">Uruchom symulację</button>
-                <span id="bt-status" class="muted small"></span>
+                <button id="bt-sens" class="btn line">Analiza wrażliwości</button>
+                <span id="bt-status" class="small muted"></span>
             </div>
-            <p class="note">Symulacja stosuje te same reguły i parametry co „Mój portfel”. Uniwersum ma stały, dzisiejszy skład (bez historycznych zmian w indeksach), więc jak zaznacza autor strategii, wyniki mogą być zawyżone. Pierwsze 250 sesji danych to rozgrzewka wskaźników.</p>
-        </div>
+        </section>
         <div id="bt-out"></div>
     </section>
 
-    <!-- ===== Dane ===== -->
-    <section id="tab-dane" class="tab" hidden>
-        <h2>Dane notowań</h2>
-        <div class="card">
-            <h3>Wczytaj notowania dzienne (format Stooq)</h3>
-            <ol class="rules small">
-                <li><b>Cała baza naraz:</b> na stooq.pl w „Dane historyczne” pobierz paczkę dziennych notowań dla Polski w formacie ASCII i rozpakuj. Wskaż folder ze spółkami GPW (np. <code>wse stocks</code>) oraz plik indeksu WIG (<code>wig.txt</code> z folderu z indeksami).</li>
-                <li><b>Pojedyncze spółki:</b> na stronie notowań spółki w stooq.pl pobierz dane dzienne w pliku CSV (np. <code>pko_d.csv</code>) i wczytaj kilka plików naraz.</li>
-            </ol>
-            <div class="form-row">
-                <label class="btn sm">Wybierz pliki… <input type="file" id="in-files" multiple accept=".csv,.txt" hidden></label>
-                <label class="btn ghost sm">Wybierz folder… <input type="file" id="in-dir" webkitdirectory multiple hidden></label>
-                <button id="btn-demo" class="btn ghost sm">Wczytaj dane demo</button>
-                <button id="btn-clear" class="btn ghost sm danger">Wyczyść dane</button>
-                <span id="in-status" class="muted small"></span>
+    <!-- 04 Dane -->
+    <section id="tab-dane" hidden>
+        <div class="view-head">
+            <div>
+                <p class="eyebrow">04 — Dane</p>
+                <h1>Notowania i uniwersum</h1>
             </div>
-            <div id="drop" class="drop">…albo upuść tu pliki .csv / .txt</div>
-            <p class="note">Dane zostają w przeglądarce (IndexedDB) i nie są nigdzie wysyłane.</p>
         </div>
-        <div class="card">
-            <h3>Uniwersum i benchmark</h3>
-            <div class="form-grid">
-                <label>Ticker benchmarku <input type="text" id="set-bench" value="WIG"></label>
-                <label class="span-all">Spółki z WIG20 + mWIG40 + sWIG80 (140 tickerów, oddzielone spacją, przecinkiem lub nową linią). Puste pole = wszystkie wczytane pliki poza benchmarkiem.
-                    <textarea id="set-universe" rows="5" placeholder="PKO PKN PZU PEO KGH CDR ALE DNP LPP ..."></textarea>
-                </label>
+        <section class="panel">
+            <div class="panel-head"><h2>Źródło danych</h2></div>
+            <div class="panel-body" id="data-status"></div>
+            <div class="panel-foot">
+                Aktualizacja raz w tygodniu: pobierz paczkę <code>d_pl_txt.zip</code> ze <a href="https://stooq.pl/db/h/" target="_blank" rel="noopener">stooq.pl/db/h</a> (dane dzienne, Polska, ASCII), zostaw ją w folderze projektu albo w Pobranych i uruchom <code>npm run update -- --push</code>. Skrypt sam wyznaczy skład WIG140, uruchomi testy i opublikuje dane.
             </div>
-            <p class="note">Skład indeksów zmienia się co kwartał. Aktualne portfele indeksów publikuje GPW Benchmark. Spółka, która wypadnie z listy, zostanie sprzedana przy najbliższym rebalansie swojej transzy.</p>
-        </div>
-        <div class="card">
-            <h3>Stan danych</h3>
-            <div id="data-status"></div>
-        </div>
+        </section>
+        <section class="panel">
+            <div class="panel-head"><h2>Skład uniwersum</h2><span class="meta" id="uni-meta"></span></div>
+            <div class="panel-body">
+                <div id="uni-list" class="mono small muted"></div>
+                <div class="fields" style="margin-top:18px">
+                    <label class="field wide">Lista ręczna (opcjonalnie): oficjalny skład WIG140 z GPW Benchmark zastępuje przybliżenie. Tickery oddzielone spacją, przecinkiem lub nową linią.
+                        <textarea id="set-universe" rows="4" placeholder="PKO PKN PZU PEO KGH CDR ..."></textarea>
+                    </label>
+                    <label class="field">Ticker benchmarku <input type="text" id="set-bench" value="WIG"></label>
+                </div>
+            </div>
+        </section>
+        <section class="panel">
+            <div class="panel-head"><h2>Import ręczny</h2><span class="meta">gdy aplikacja jest otwarta z dysku, bez serwera</span></div>
+            <div class="panel-body">
+                <div class="row">
+                    <label class="btn line sm">Wybierz pliki… <input type="file" id="in-files" multiple accept=".csv,.txt" hidden></label>
+                    <label class="btn line sm">Wybierz folder… <input type="file" id="in-dir" webkitdirectory multiple hidden></label>
+                    <button id="btn-demo" class="btn text">Dane demonstracyjne</button>
+                    <button id="btn-repo" class="btn text">Wróć do danych z repozytorium</button>
+                    <span id="in-status" class="small muted"></span>
+                </div>
+                <div id="drop" class="drop">albo upuść tutaj pliki .csv / .txt ze Stooq</div>
+            </div>
+        </section>
     </section>
 
-    <!-- ===== Zasady ===== -->
-    <section id="tab-zasady" class="tab" hidden>
-        <h2>Zasady strategii</h2>
-        <div class="card">
-            <ol class="rules">
-                <li><b>Uniwersum:</b> spółki z WIG20, mWIG40 i sWIG80 (140 spółek). Skład korygowany kwartalnie za GPW. Spółka, która wypadnie z uniwersum, jest sprzedawana w transzy, w której się znajduje.</li>
-                <li><b>Momentum:</b> regresja wykładnicza cen (regresja liniowa logarytmu kursu) dla 125 i 250 sesji. Roczne tempo wzrostu w % mnożone przez R². Wynik to średnia z obu okresów.</li>
-                <li><b>Próg:</b> kupowane są tylko spółki z momentum co najmniej 20.</li>
-                <li><b>Filtr wzrostu:</b> nie kupuj spółek, które wzrosły o ponad 30% w ostatnich 90 sesjach.</li>
-                <li><b>Transze:</b> kapitał dzielony na 3 transze po około 1/3, każda zarządzana osobno. Maksymalnie 5 spółek w transzy (15 w portfelu). Gdy warunki spełnia mniej spółek, reszta zostaje w gotówce.</li>
-                <li><b>Wagi (parytet ryzyka):</b> zmienność z 50 sesji (ATR/kurs). Zmienność odwrócona <code>InvVola = 1/(ATR/P)</code> jest standaryzowana <code>z = (InvVola − średnia) / odch.std</code> i winsoryzowana do ±2. Ocena wynosi <code>1 + z</code> dla z &gt; 0 lub <code>1/(1 − z)</code> dla z ≤ 0. Wagi to oceny podzielone przez ich sumę. Im bardziej zmienna spółka, tym mniejsza waga.</li>
-                <li><b>Rebalansowanie:</b> każda transza co 3 miesiące, przesunięte o miesiąc: <b>T1</b> luty, maj, sierpień, listopad; <b>T2</b> marzec, czerwiec, wrzesień, grudzień; <b>T3</b> kwiecień, lipiec, październik, styczeń. Sygnał po zamknięciu 9. sesji miesiąca, transakcje na 10. sesji po kursie zamknięcia.</li>
-                <li><b>Nadwyżka:</b> jeśli rebalansowana transza przekracza 1/3 wartości portfela, nadwyżka gotówki przechodzi do kolejnej transzy (tej, która rebalansuje się w następnym miesiącu).</li>
-                <li><b>Bez stop-lossów i filtra rynku.</b> Spółka wypada z portfela, gdy przy rebalansie nie jest w top 5, ma momentum poniżej progu albo wypadła z uniwersum. Wolna gotówka zostaje na koncie (bez obligacji).</li>
-                <li><b>Koszty:</b> prowizja 0,5% od transakcji, minimum 5 zł. Filtr minimalnej zmienności odwróconej jest wyłączony.</li>
-            </ol>
-            <p class="note">Źródła: <a href="https://systemtrader.pl/moje-konto-emerytalne-ikze-czyli-przyklad-wykorzystania-strategii-dla-rynku-akcji-na-gpw-w-praktyce/" target="_blank" rel="noopener">Moje konto emerytalne IKZE</a> oraz <a href="https://systemtrader.pl/strategia-inwestowania-w-akcje-czyli-o-tym-jak-zarzadzac-ryzykiem-w-portfelu-i-jak-przejsc-do-defensywy-gdy-na-rynku-leje-sie-krew/" target="_blank" rel="noopener">opis strategii AEM</a> (systemtrader.pl).</p>
-        </div>
-        <div class="card">
-            <h3>Założenia tam, gdzie artykuły nie są precyzyjne</h3>
-            <ul class="rules small">
-                <li>Roczne tempo wzrostu z nachylenia regresji <code>b</code>: <code>(e<sup>b</sup>)<sup>250</sup> − 1</code>, w procentach (jak u A. Clenowa, na którym wzorowana jest strategia).</li>
-                <li>Gdy w transzy jest mniej niż 5 spółek, wagi są skalowane do <code>n/5</code>, a pozostałe sloty zostają w gotówce.</li>
-                <li>Standaryzacja zmienności odwróconej domyślnie wśród spółek wybranych do transzy (opcja: całe uniwersum).</li>
-                <li>Filtr wzrostu blokuje tylko nowe zakupy. Spółka już trzymana w transzy może w niej zostać.</li>
-                <li>Akcje kupowane w pełnych sztukach (zaokrąglenie w dół). Najpierw sprzedaże, potem zakupy w kolejności rankingu.</li>
-                <li>Wpłaty dzielone po równo na trzy transze (lub do wskazanej transzy).</li>
-                <li>Dzień sesji liczony wg kalendarza notowań we wczytanych danych.</li>
-            </ul>
-        </div>
-        <div class="card">
-            <div class="row-between">
-                <h3>Parametry</h3>
-                <button id="par-reset" class="btn ghost sm">Przywróć wartości z artykułu</button>
+    <!-- 05 Zasady -->
+    <section id="tab-zasady" hidden>
+        <div class="view-head">
+            <div>
+                <p class="eyebrow">05 — Zasady</p>
+                <h1>Reguły strategii</h1>
+                <p class="lead">Według artykułów <a href="https://systemtrader.pl/moje-konto-emerytalne-ikze-czyli-przyklad-wykorzystania-strategii-dla-rynku-akcji-na-gpw-w-praktyce/" target="_blank" rel="noopener">„Moje konto emerytalne IKZE”</a> i <a href="https://systemtrader.pl/strategia-inwestowania-w-akcje-czyli-o-tym-jak-zarzadzac-ryzykiem-w-portfelu-i-jak-przejsc-do-defensywy-gdy-na-rynku-leje-sie-krew/" target="_blank" rel="noopener">opisu strategii AEM</a> (systemtrader.pl).</p>
             </div>
-            <div id="params" class="form-grid"></div>
         </div>
+        <div class="split">
+            <section class="panel">
+                <div class="panel-head"><h2>Reguły</h2></div>
+                <div class="panel-body">
+                    <ol class="rules">
+                        <li><div><b>Uniwersum.</b> Spółki z WIG20, mWIG40 i sWIG80, czyli WIG140. Skład zmienia się co kwartał. Spółka, która wypadnie z indeksu, jest sprzedawana przy rebalansie swojej transzy.</div></li>
+                        <li><div><b>Momentum.</b> Regresja wykładnicza kursu (regresja liniowa logarytmu) dla 125 i 250 sesji. Roczne tempo wzrostu w % mnożone przez R². Wynik to średnia z obu okresów.</div></li>
+                        <li><div><b>Próg.</b> Kupowane są tylko spółki z momentum co najmniej 20.</div></li>
+                        <li><div><b>Filtr wzrostu.</b> Nie kupuj spółek, które wzrosły o ponad 30% w ostatnich 90 sesjach.</div></li>
+                        <li><div><b>Transze.</b> Kapitał w trzech transzach po około 1/3, każda zarządzana osobno, w każdej najwyżej 5 spółek. Gdy warunki spełnia mniej spółek, reszta zostaje w gotówce.</div></li>
+                        <li><div><b>Wagi.</b> Parytet ryzyka. Zmienność odwrócona <code>1/(ATR50/P)</code> standaryzowana do z-score i ucięta do ±2. Ocena wynosi <code>1+z</code> dla z &gt; 0, a w przeciwnym razie <code>1/(1−z)</code>. Wagi są proporcjonalne do ocen.</div></li>
+                        <li><div><b>Kalendarz.</b> Każda transza co 3 miesiące. T1: luty, maj, sierpień, listopad. T2: marzec, czerwiec, wrzesień, grudzień. T3: kwiecień, lipiec, październik, styczeń. Sygnał po 9. sesji miesiąca, transakcje na 10. sesji po kursie zamknięcia.</div></li>
+                        <li><div><b>Nadwyżka.</b> Gdy rebalansowana transza przekracza 1/3 portfela, nadwyżka gotówki przechodzi do kolejnej transzy.</div></li>
+                        <li><div><b>Bez stop-lossów i filtra rynku.</b> Wolna gotówka zostaje na rachunku. Prowizja 0,5%, minimum 5 zł.</div></li>
+                    </ol>
+                </div>
+            </section>
+            <section class="panel">
+                <div class="panel-head"><h2>Założenia implementacji</h2></div>
+                <div class="panel-body small">
+                    <ul class="plain">
+                        <li>Roczne tempo z nachylenia <code>b</code>: <code>e<sup>250b</sup> − 1</code> (jak u A. Clenowa).</li>
+                        <li>Przy mniej niż 5 spółkach wagi są skalowane do n/5, reszta zostaje w gotówce.</li>
+                        <li>Z-score domyślnie liczony wśród spółek wybranych do transzy.</li>
+                        <li>Akcje w pełnych sztukach. Najpierw sprzedaże, potem zakupy w kolejności rankingu.</li>
+                        <li>Skład WIG140 przybliżony rankingiem kapitalizacji i obrotów, bo free floatu nie ma w danych Stooq.</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+        <section class="panel">
+            <div class="panel-head"><h2>Parametry</h2><button id="par-reset" class="btn text">Przywróć wartości z artykułu</button></div>
+            <div class="panel-body"><div id="params" class="fields"></div></div>
+        </section>
     </section>
 </main>
-<footer>Narzędzie edukacyjne. Nie stanowi rekomendacji inwestycyjnej. Strategia i parametry: systemtrader.pl.</footer>
+
+<footer>
+    <div class="wrap">Narzędzie edukacyjne, nie rekomendacja inwestycyjna. Strategia: systemtrader.pl. Dane: stooq.pl.</div>
+</footer>
+
+<dialog id="login">
+    <form method="dialog" class="panel" style="margin:0;border:0">
+        <div class="panel-head"><h2>Synchronizacja portfela</h2><button class="icon-x" value="cancel" aria-label="Zamknij">×</button></div>
+        <div class="panel-body" id="login-body"></div>
+    </form>
+</dialog>
 <datalist id="tickers"></datalist>
 
-<script>
-'use strict';
-
-// ==== ENGINE START (logika strategii, bez DOM)
-const DEFAULT_PARAMS = {
-    momShort: 125,
-    momLong: 250,
-    momMin: 20,
-    riseMax: 30,
-    riseDays: 90,
-    slots: 5,
-    volDays: 50,
-    volMode: 'atr',
-    weightMode: 'st',
-    zPop: 'top',
-    commPct: 0.5,
-    commMin: 5,
-    signalSession: 9,
-    carryExcess: true,
-    riseFilterHeld: false,
-};
-const TRANCHES = 3;
-const TRANCHE_MONTHS = [[2, 5, 8, 11], [3, 6, 9, 12], [4, 7, 10, 1]];
-const STALE_DAYS = 10;
-
-let P = { ...DEFAULT_PARAMS };
-let DATA = { series: {}, demo: false };
-let SET = { bench: 'WIG', universe: '' };
-let _cal = null, _uni = null;
-
-function invalidate() { _cal = null; _uni = null; }
-
-// --- daty jako liczby RRRRMMDD
-const ymd = d => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
-const toDate = n => new Date(Math.floor(n / 10000), Math.floor(n / 100) % 100 - 1, n % 100);
-const pad2 = n => String(n).padStart(2, '0');
-const iso = n => `${Math.floor(n / 10000)}-${pad2(Math.floor(n / 100) % 100)}-${pad2(n % 100)}`;
-const plDate = n => n ? `${pad2(n % 100)}.${pad2(Math.floor(n / 100) % 100)}.${Math.floor(n / 10000)}` : '–';
-const fromIso = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '') ? +s.replaceAll('-', '') : 0;
-const daysBetween = (a, b) => Math.round((toDate(b) - toDate(a)) / 864e5);
-
-function lastIdx(arr, x) {
-    let lo = 0, hi = arr.length - 1, r = -1;
-    while (lo <= hi) {
-        const m = (lo + hi) >> 1;
-        if (arr[m] <= x) { r = m; lo = m + 1; } else hi = m - 1;
-    }
-    return r;
-}
-
-function parseTickers(text) {
-    return [...new Set(String(text || '').toUpperCase().split(/[^A-Z0-9_.\-]+/).filter(Boolean))];
-}
-
-const benchTicker = () => String(SET.bench || '').trim().toUpperCase();
-
-function universe() {
-    if (_uni) return _uni;
-    const b = benchTicker();
-    const list = DATA.demo ? [] : parseTickers(SET.universe);
-    const base = list.length ? list.filter(t => DATA.series[t]) : Object.keys(DATA.series);
-    return (_uni = base.filter(t => t !== b).sort());
-}
-
-function calendar() {
-    if (_cal) return _cal;
-    const set = new Set();
-    for (const t of [...universe(), benchTicker()]) {
-        const s = DATA.series[t];
-        if (s) for (const d of s.d) set.add(d);
-    }
-    return (_cal = Int32Array.from([...set].sort((a, b) => a - b)));
-}
-
-function priceAt(t, date) {
-    const s = DATA.series[t];
-    if (!s) return NaN;
-    const i = lastIdx(s.d, date);
-    return i < 0 ? NaN : s.c[i];
-}
-
-// numer sesji w miesiącu wg kalendarza danych
-function sessionNumber(date) {
-    const cal = calendar(), i = lastIdx(cal, date);
-    if (i < 0 || cal[i] !== date) return 0;
-    let n = 0;
-    for (let j = i; j >= 0 && Math.floor(cal[j] / 100) === Math.floor(date / 100); j--) n++;
-    return n;
-}
-
-// regresja liniowa ln(ceny) na n ostatnich sesjach: roczne tempo wzrostu (%) × R²
-function momentumScore(c, end, n) {
-    const start = end - n + 1;
-    if (start < 0) return NaN;
-    let sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0;
-    for (let k = 0; k < n; k++) {
-        const y = Math.log(c[start + k]);
-        if (!Number.isFinite(y)) return NaN;
-        sx += k; sy += y; sxx += k * k; sxy += k * y; syy += y * y;
-    }
-    const cov = n * sxy - sx * sy, vx = n * sxx - sx * sx, vy = n * syy - sy * sy;
-    const slope = cov / vx;
-    const r2 = vy > 0 ? (cov * cov) / (vx * vy) : 0;
-    return (Math.pow(Math.exp(slope), 250) - 1) * 100 * r2;
-}
-
-// zmienność z P.volDays sesji: ATR/kurs albo roczne odchylenie std. log-stóp zwrotu
-function volatility(s, i) {
-    const n = P.volDays;
-    if (i < n) return NaN;
-    let v;
-    if (P.volMode === 'atr') {
-        let sum = 0;
-        for (let j = i - n + 1; j <= i; j++) {
-            const pc = s.c[j - 1], hi = s.h[j], lo = s.l[j];
-            sum += hi > 0 && lo > 0 ? Math.max(hi - lo, Math.abs(hi - pc), Math.abs(lo - pc)) : Math.abs(s.c[j] - pc);
-        }
-        v = sum / n / s.c[i];
-    } else {
-        let a = 0, b = 0;
-        for (let j = i - n + 1; j <= i; j++) {
-            const r = Math.log(s.c[j] / s.c[j - 1]);
-            a += r; b += r * r;
-        }
-        v = Math.sqrt(Math.max(0, (b - a * a / n) / (n - 1)) * 250);
-    }
-    return v > 0 ? v : NaN;
-}
-
-function stockStats(t, date) {
-    const s = DATA.series[t];
-    const i = s ? lastIdx(s.d, date) : -1;
-    if (i < 0) return { t, status: 'nodata', mom: NaN, m1: NaN, m2: NaN, rise: NaN, vol: NaN, price: NaN };
-    const r = { t, price: s.c[i], last: s.d[i] };
-    r.m1 = momentumScore(s.c, i, P.momShort);
-    r.m2 = momentumScore(s.c, i, P.momLong);
-    r.mom = (r.m1 + r.m2) / 2;
-    r.rise = i >= P.riseDays ? s.c[i] / s.c[i - P.riseDays] - 1 : NaN;
-    r.vol = volatility(s, i);
-    r.status = daysBetween(s.d[i], date) > STALE_DAYS ? 'stale'
-        : !Number.isFinite(r.mom) || !Number.isFinite(r.vol) ? 'short'
-        : r.mom < P.momMin ? 'weak'
-        : r.rise > P.riseMax / 100 ? 'rise'
-        : 'ok';
-    return r;
-}
-
-// wagi parytetu ryzyka; suma wag = n / P.slots (puste sloty zostają w gotówce)
-function assignWeights(top, rows) {
-    if (!top.length) return;
-    let raw;
-    if (P.weightMode === 'inv') {
-        raw = top.map(r => 1 / r.vol);
-    } else {
-        const popRows = P.zPop === 'universe'
-            ? rows.filter(r => Number.isFinite(r.vol) && r.status !== 'stale' && r.status !== 'nodata')
-            : top;
-        const pop = popRows.map(r => 1 / r.vol);
-        const mean = pop.reduce((a, b) => a + b, 0) / pop.length;
-        const sd = Math.sqrt(pop.reduce((a, b) => a + (b - mean) ** 2, 0) / pop.length);
-        raw = top.map(r => {
-            const z = sd > 0 ? Math.max(-2, Math.min(2, (1 / r.vol - mean) / sd)) : 0;
-            return z > 0 ? 1 + z : 1 / (1 - z);
-        });
-    }
-    const sum = raw.reduce((a, b) => a + b, 0);
-    top.forEach((r, j) => { r.weight = raw[j] / sum * top.length / P.slots; });
-}
-
-const sortKey = v => Number.isFinite(v) ? v : -1e18;
-
-function rankAt(date, held = new Set()) {
-    const rows = universe().map(t => stockStats(t, date));
-    const cands = rows.filter(r => r.status === 'ok' || (r.status === 'rise' && !P.riseFilterHeld && held.has(r.t)));
-    cands.sort((a, b) => b.mom - a.mom);
-    const top = cands.slice(0, P.slots);
-    top.forEach(r => { r.top = true; });
-    assignWeights(top, rows);
-    rows.sort((a, b) => sortKey(b.mom) - sortKey(a.mom));
-    return { rows, top, eligible: cands.length };
-}
-
-const fee = v => v > 0 ? Math.max(P.commMin, v * P.commPct / 100) : 0;
-const trancheOfMonth = m => (m + 1) % 3;
-
-function trancheValue(tr, date) {
-    let v = tr.cash;
-    for (const [t, n] of Object.entries(tr.pos)) {
-        const p = priceAt(t, date);
-        if (Number.isFinite(p)) v += n * p;
-    }
-    return v;
-}
-
-// plan rebalansu transzy k na podstawie zamknięcia z dnia `date`
-function planTranche(trs, k, date) {
-    const vals = trs.map(tr => trancheValue(tr, date));
-    const total = vals.reduce((a, b) => a + b, 0);
-    const V = vals[k];
-    const excess = P.carryExcess ? Math.max(0, V - total / trs.length) : 0;
-    const invest = Math.max(0, V - excess);
-    const held = new Set(Object.keys(trs[k].pos));
-    const rk = rankAt(date, held);
-    const c = P.commPct / 100;
-    const target = new Map();
-    for (const r of rk.top) target.set(r.t, Math.floor(invest * r.weight / (r.price * (1 + c))));
-    const orders = [];
-    for (const t of new Set([...held, ...target.keys()])) {
-        const cur = trs[k].pos[t] || 0, tgt = target.get(t) || 0, diff = tgt - cur;
-        if (!diff) continue;
-        orders.push({ t, side: diff > 0 ? 'buy' : 'sell', shares: Math.abs(diff), price: priceAt(t, date), kind: !cur ? 'nowa pozycja' : !tgt ? 'zamknięcie' : 'korekta wagi' });
-    }
-    const rankPos = new Map(rk.top.map((r, j) => [r.t, j]));
-    orders.sort((a, b) => a.side !== b.side ? (a.side === 'sell' ? -1 : 1) : (rankPos.get(a.t) ?? 99) - (rankPos.get(b.t) ?? 99));
-    return { k, date, vals, total, V, excess, invest, rk, target, orders };
-}
-
-function executeOrders(tr, orders, priceFn, onTrade) {
-    const c = P.commPct / 100;
-    for (const o of orders) {
-        const px = priceFn(o.t);
-        if (!(px > 0)) continue;
-        if (o.side === 'sell') {
-            const n = Math.min(o.shares, tr.pos[o.t] || 0);
-            if (!n) continue;
-            const value = n * px, f = fee(value);
-            tr.cash += value - f;
-            tr.pos[o.t] -= n;
-            if (!tr.pos[o.t]) delete tr.pos[o.t];
-            onTrade?.({ t: o.t, side: 'sell', shares: n, price: px, value, fee: f });
-        } else {
-            const n = Math.min(o.shares, Math.floor(tr.cash / (px * (1 + c))), Math.floor((tr.cash - P.commMin) / px));
-            if (n <= 0) continue;
-            const value = n * px, f = fee(value);
-            tr.cash -= value + f;
-            tr.pos[o.t] = (tr.pos[o.t] || 0) + n;
-            onTrade?.({ t: o.t, side: 'buy', shares: n, price: px, value, fee: f });
-        }
-    }
-}
-
-function transferExcess(trs, k, amount) {
-    const amt = Math.min(amount, Math.max(0, trs[k].cash));
-    if (amt < 0.01) return 0;
-    trs[k].cash -= amt;
-    trs[(k + 1) % trs.length].cash += amt;
-    return amt;
-}
-
-// indeks sesji wykonania -> numer transzy
-function rebalanceSchedule(cal) {
-    const map = new Map();
-    let month = -1, cnt = 0;
-    for (let i = 0; i < cal.length; i++) {
-        const mk = Math.floor(cal[i] / 100);
-        if (mk !== month) { month = mk; cnt = 0; }
-        if (++cnt === P.signalSession && i + 1 < cal.length) map.set(i + 1, trancheOfMonth(mk % 100));
-    }
-    return map;
-}
-
-function runBacktest(cfg) {
-    const cal = calendar();
-    let s = 0;
-    while (s < cal.length && cal[s] < cfg.start) s++;
-    const e = cfg.end ? lastIdx(cal, cfg.end) : cal.length - 1;
-    if (s >= cal.length || e <= s) throw new Error('Brak sesji w wybranym zakresie dat.');
-    const sched = rebalanceSchedule(cal);
-    const trs = Array.from({ length: TRANCHES }, () => ({ cash: cfg.capital / TRANCHES, pos: {} }));
-    const deps = cfg.deposits.slice().sort((a, b) => a.date - b.date);
-    const bt = benchTicker();
-    const out = { dates: [], value: [], twr: [], bench: [], cashPct: [], trTwr: trs.map(() => []), trades: [], fees: 0, deposited: cfg.capital, rebalances: 0 };
-    let dp = 0, prevV = 0, idx = 100, b0 = NaN;
-    let prevTV = trs.map(() => 0);
-    const tIdx = trs.map(() => 100);
-    for (let t = s; t <= e; t++) {
-        const date = cal[t];
-        const flows = trs.map(() => 0);
-        let dep = 0;
-        while (dp < deps.length && deps[dp].date <= date) {
-            const a = deps[dp++].amount;
-            dep += a;
-            trs.forEach((tr, k) => { tr.cash += a / TRANCHES; flows[k] += a / TRANCHES; });
-        }
-        out.deposited += dep;
-        if (sched.has(t)) {
-            const k = sched.get(t);
-            const plan = planTranche(trs, k, cal[t - 1]);
-            executeOrders(trs[k], plan.orders, tk => priceAt(tk, date), x => {
-                out.trades.push({ date, k, ...x });
-                out.fees += x.fee;
-            });
-            const moved = transferExcess(trs, k, plan.excess);
-            if (moved) {
-                flows[k] -= moved;
-                flows[(k + 1) % TRANCHES] += moved;
-                out.trades.push({ date, k, side: 'transfer', t: '', shares: 0, price: NaN, value: moved, fee: 0 });
-            }
-            out.rebalances++;
-        }
-        const tv = trs.map(tr => trancheValue(tr, date));
-        const V = tv.reduce((a, b) => a + b, 0);
-        if (prevV > 0) idx *= (V - dep) / prevV;
-        trs.forEach((_, k) => {
-            if (prevTV[k] > 0) tIdx[k] *= (tv[k] - flows[k]) / prevTV[k];
-            out.trTwr[k].push(tIdx[k]);
-        });
-        prevV = V;
-        prevTV = tv;
-        const bp = priceAt(bt, date);
-        if (!(b0 > 0) && bp > 0) b0 = bp;
-        out.dates.push(date);
-        out.value.push(V);
-        out.twr.push(idx);
-        out.bench.push(bp > 0 && b0 > 0 ? 100 * bp / b0 : NaN);
-        out.cashPct.push(V > 0 ? trs.reduce((a, tr) => a + tr.cash, 0) / V : 1);
-    }
-    out.final = trs;
-    out.endDate = cal[e];
-    return out;
-}
-
-function perfStats(dates, v) {
-    let i0 = -1, i1 = -1;
-    for (let i = 0; i < v.length; i++) if (Number.isFinite(v[i]) && v[i] > 0) { if (i0 < 0) i0 = i; i1 = i; }
-    if (i0 < 0 || i1 <= i0) return null;
-    const years = daysBetween(dates[i0], dates[i1]) / 365.25;
-    let peak = -Infinity, mdd = 0, sum = 0, sq = 0, cnt = 0, prev = NaN;
-    for (let i = i0; i <= i1; i++) {
-        const x = v[i];
-        if (!Number.isFinite(x)) continue;
-        if (x > peak) peak = x;
-        mdd = Math.min(mdd, x / peak - 1);
-        if (Number.isFinite(prev)) { const r = x / prev - 1; sum += r; sq += r * r; cnt++; }
-        prev = x;
-    }
-    return {
-        total: v[i1] / v[i0] - 1,
-        cagr: years > 0 ? Math.pow(v[i1] / v[i0], 1 / years) - 1 : NaN,
-        mdd,
-        vol: cnt > 1 ? Math.sqrt(Math.max(0, (sq - sum * sum / cnt) / (cnt - 1)) * 250) : NaN,
-    };
-}
-
-function drawdown(v) {
-    let peak = -Infinity;
-    return v.map(x => {
-        if (!Number.isFinite(x)) return NaN;
-        if (x > peak) peak = x;
-        return x / peak - 1;
-    });
-}
-
-function yearlyReturns(dates, list) {
-    const ends = [];
-    for (let i = 0; i < dates.length; i++) {
-        const y = Math.floor(dates[i] / 10000);
-        if (i === dates.length - 1 || Math.floor(dates[i + 1] / 10000) !== y) ends.push([y, i]);
-    }
-    let p = -1;
-    return ends.map(([year, i]) => {
-        const vals = list.map(v => {
-            let b = p >= 0 ? v[p] : NaN;
-            if (!Number.isFinite(b)) for (let j = Math.max(p, 0); j <= i; j++) if (Number.isFinite(v[j])) { b = v[j]; break; }
-            return Number.isFinite(b) && Number.isFinite(v[i]) ? v[i] / b - 1 : NaN;
-        });
-        p = i;
-        return { year, vals };
-    });
-}
-
-// --- kalendarz sesji GPW (do szacowania przyszłych terminów)
-function easter(y) {
-    const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4;
-    const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), hh = (19 * a + b - d - g + 15) % 30;
-    const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - hh - k) % 7, m = Math.floor((a + 11 * hh + 22 * l) / 451);
-    const n = hh + l - 7 * m + 114;
-    return new Date(y, Math.floor(n / 31) - 1, (n % 31) + 1);
-}
-const _holidays = {};
-function gpwHolidays(y) {
-    const e = easter(y);
-    const rel = n => ymd(new Date(e.getFullYear(), e.getMonth(), e.getDate() + n));
-    return new Set([101, 106, 501, 503, 815, 1101, 1111, 1224, 1225, 1226, 1231].map(md => y * 10000 + md)
-        .concat([rel(-2), rel(1), rel(60)]));
-}
-function isSession(n) {
-    const d = toDate(n), wd = d.getDay();
-    if (wd === 0 || wd === 6) return false;
-    return !(_holidays[d.getFullYear()] ||= gpwHolidays(d.getFullYear())).has(n);
-}
-function sessionsOfMonth(y, m) {
-    const out = [];
-    for (let d = 1; d <= 31; d++) {
-        const dt = new Date(y, m - 1, d);
-        if (dt.getMonth() !== m - 1) break;
-        const n = ymd(dt);
-        if (isSession(n)) out.push(n);
-    }
-    return out;
-}
-function nextRebalance(k, from) {
-    let y = Math.floor(from / 10000), m = Math.floor(from / 100) % 100;
-    for (let step = 0; step < 14; step++) {
-        if (trancheOfMonth(m) === k) {
-            const sess = sessionsOfMonth(y, m);
-            const sig = sess[P.signalSession - 1], exe = sess[P.signalSession];
-            if (exe && exe >= from) return { sig, exe };
-        }
-        if (++m > 12) { m = 1; y++; }
-    }
-    return { sig: 0, exe: 0 };
-}
-
-// --- import plików Stooq (CSV ze strony notowań albo TXT z paczki bazy)
-function parseDate(s) {
-    s = String(s || '').trim();
-    let m;
-    if ((m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s))) return +m[1] * 10000 + +m[2] * 100 + +m[3];
-    if (/^\d{8}$/.test(s)) return +s;
-    if ((m = /^(\d{2})\.(\d{2})\.(\d{4})/.exec(s))) return +m[3] * 10000 + +m[2] * 100 + +m[1];
-    return 0;
-}
-
-function parseStooq(name, text) {
-    const lines = text.split(/\r?\n/);
-    let hdr = 0;
-    while (hdr < lines.length && !lines[hdr].trim()) hdr++;
-    if (hdr >= lines.length) return {};
-    const sep = lines[hdr].includes(',') ? ',' : lines[hdr].includes(';') ? ';' : '\t';
-    const cols = lines[hdr].toLowerCase().split(sep).map(s => s.replace(/[<>"\s]/g, ''));
-    const find = keys => cols.findIndex(c => keys.includes(c));
-    const iT = find(['ticker']), iD = find(['date', 'data']);
-    const iH = find(['high', 'najwyzszy', 'najwyższy']), iL = find(['low', 'najnizszy', 'najniższy']);
-    const iC = find(['close', 'zamkniecie', 'zamknięcie']);
-    if (iD < 0 || iC < 0) return {};
-    const fileT = name.replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, '').replace(/_d$/i, '').toUpperCase();
-    const rows = {};
-    for (let i = hdr + 1; i < lines.length; i++) {
-        if (!lines[i]) continue;
-        const f = lines[i].split(sep);
-        const d = parseDate(f[iD]), c = +f[iC];
-        if (!d || !(c > 0)) continue;
-        const t = iT >= 0 ? String(f[iT]).trim().toUpperCase() : fileT;
-        (rows[t] ||= []).push([d, iH >= 0 ? +f[iH] : NaN, iL >= 0 ? +f[iL] : NaN, c]);
-    }
-    const out = {};
-    for (const [t, r] of Object.entries(rows)) {
-        r.sort((a, b) => a[0] - b[0]);
-        const u = r.filter((x, j) => j === 0 || x[0] !== r[j - 1][0]);
-        out[t] = {
-            d: Int32Array.from(u, x => x[0]),
-            h: Float64Array.from(u, x => x[1]),
-            l: Float64Array.from(u, x => x[2]),
-            c: Float64Array.from(u, x => x[3]),
-        };
-    }
-    return out;
-}
-
-// --- dane demonstracyjne (syntetyczne, deterministyczne)
-function makeDemo() {
-    let seed = 20260101;
-    const rnd = () => {
-        seed = (seed + 0x6D2B79F5) | 0;
-        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-    const gauss = () => Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd());
-    const dates = [];
-    const end = ymd(new Date());
-    for (let d = new Date(2012, 0, 2); ymd(d) <= end; d.setDate(d.getDate() + 1)) if (isSession(ymd(d))) dates.push(ymd(d));
-    const n = dates.length;
-    const build = (from, to, closes, vol) => {
-        const c = Float64Array.from(closes.slice(from, to));
-        const h = c.map(x => x * (1 + Math.abs(gauss()) * vol * 0.7));
-        const l = c.map(x => x * (1 - Math.abs(gauss()) * vol * 0.7));
-        return { d: Int32Array.from(dates.slice(from, to)), h, l, c };
-    };
-    const mkt = [];
-    let m = 1, drift = 0.0003;
-    for (let i = 0; i < n; i++) {
-        if (i % 180 === 0) drift = -0.0007 + rnd() * 0.0017;
-        m *= Math.exp(drift + 0.011 * gauss());
-        mkt.push(m);
-    }
-    const series = { WIG: build(0, n, mkt.map(x => x * 50000), 0.008) };
-    for (let k = 1; k <= 40; k++) {
-        const beta = 0.6 + rnd() * 0.8, vol = 0.012 + rnd() * 0.02;
-        let p = 5 + rnd() * 120, alpha = 0;
-        const c = [];
-        for (let i = 0; i < n; i++) {
-            if (i % 120 === 0) alpha = (rnd() - 0.45) * 0.003;
-            const mr = i ? Math.log(mkt[i] / mkt[i - 1]) : 0;
-            p *= Math.exp(beta * mr + alpha + vol * gauss());
-            c.push(p);
-        }
-        const from = k % 8 === 0 ? Math.floor(rnd() * n * 0.6) : 0;
-        const to = k === 13 ? Math.floor(n * 0.7) : n;
-        series['DEMO' + pad2(k)] = build(from, to, c, vol);
-    }
-    return series;
-}
-// ==== ENGINE END
-
-// ==== UI
-const $ = (s, r = document) => r.querySelector(s);
-function h(tag, props, ...kids) {
-    const e = document.createElement(tag);
-    for (const [k, v] of Object.entries(props || {})) {
-        if (v == null || v === false) continue;
-        if (k === 'class') e.className = v;
-        else if (k === 'style') e.style.cssText = v;
-        else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
-        else if (k in e && k !== 'list') e[k] = v;
-        else e.setAttribute(k, v);
-    }
-    for (const c of kids.flat()) if (c != null && c !== false) e.append(c instanceof Node ? c : String(c));
-    return e;
-}
-const nf = (v, d = 2) => Number.isFinite(v) ? v.toLocaleString('pl-PL', { minimumFractionDigits: d, maximumFractionDigits: d }) : '–';
-const pln = v => Number.isFinite(v) ? nf(v, 2) + ' zł' : '–';
-const pct = (v, d = 1) => Number.isFinite(v) ? nf(v * 100, d) + '%' : '–';
-const MONTHS = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
-const monthsLabel = k => TRANCHE_MONTHS[k].map(m => MONTHS[m - 1]).join(' · ');
-
-function lsGet(k, def) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } }
-function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* brak dostępu do pamięci */ } }
-
-const idb = {
-    _db: null,
-    open() {
-        return this._db ||= new Promise((res, rej) => {
-            const r = indexedDB.open('momentum-gpw', 1);
-            r.onupgradeneeded = () => r.result.createObjectStore('kv');
-            r.onsuccess = () => res(r.result);
-            r.onerror = () => rej(r.error);
-        });
-    },
-    async get(key) {
-        const db = await this.open();
-        return new Promise((res, rej) => {
-            const q = db.transaction('kv').objectStore('kv').get(key);
-            q.onsuccess = () => res(q.result);
-            q.onerror = () => rej(q.error);
-        });
-    },
-    async set(key, val) {
-        const db = await this.open();
-        return new Promise((res, rej) => {
-            const tx = db.transaction('kv', 'readwrite');
-            tx.objectStore('kv').put(val, key);
-            tx.oncomplete = () => res();
-            tx.onerror = () => rej(tx.error);
-        });
-    },
-};
-
-let PF = normalizePF(lsGet('momentum.portfolio', null));
-let PLAN = null;
-let ANALYSIS = 0;
-let BT = null;
-let liveCharts = [];
-
-const hasData = () => universe().length > 0;
-
-function normalizePF(x) {
-    const tr = Array.isArray(x?.tranches) ? x.tranches : [];
-    return {
-        tranches: Array.from({ length: TRANCHES }, (_, k) => ({
-            cash: +tr[k]?.cash || 0,
-            pos: Object.fromEntries(Object.entries(tr[k]?.pos || {})
-                .filter(([, n]) => Math.floor(+n) > 0)
-                .map(([t, n]) => [String(t).toUpperCase(), Math.floor(+n)])),
-        })),
-        journal: Array.isArray(x?.journal) ? x.journal.filter(j => j && typeof j.text === 'string').slice(-500) : [],
-    };
-}
-function savePF() { PLAN = null; lsSet('momentum.portfolio', PF); }
-function journal(text) { PF.journal.push({ ts: new Date().toISOString(), text }); }
-
-function tiles(items) {
-    return h('div', { class: 'tiles' }, items.map(([label, value, sub]) =>
-        h('div', { class: 'tile' }, h('div', { class: 'tile-l' }, label), h('div', { class: 'tile-v' }, value), sub ? h('div', { class: 'tile-s' }, sub) : null)));
-}
-// nagłówek z ">" na początku = kolumna liczbowa
-function table(head, rows, cls = '') {
-    return h('div', { class: 'table-wrap ' + cls }, h('table', { class: 'data' },
-        h('thead', {}, h('tr', {}, head.map(c => h('th', { class: c.startsWith('>') ? 'num' : '' }, c.replace(/^>/, ''))))),
-        h('tbody', {}, rows)));
-}
-const td = (v, num) => h('td', { class: num ? 'num' : '' }, v);
-
-function statusBadge(r) {
-    const map = {
-        top: ['TOP ' + P.slots, 'b-top'],
-        ok: ['kwalifikuje się', 'b-ok'],
-        weak: [`momentum < ${P.momMin}`, 'b-mute'],
-        rise: [`wzrost > ${P.riseMax}% w ${P.riseDays} sesjach`, 'b-warn'],
-        short: ['za krótka historia', 'b-mute'],
-        stale: ['brak bieżących notowań', 'b-bad'],
-        nodata: ['brak danych', 'b-bad'],
-    };
-    const [label, cls] = map[r.top ? 'top' : r.status];
-    return h('span', { class: 'badge ' + cls }, label);
-}
-const volLabel = () => P.volMode === 'atr' ? `ATR ${P.volDays} / kurs` : `Zmienność ${P.volDays} (rocz.)`;
-
-// ---------- zakładki
-function showTab(name) {
-    if (!document.getElementById('tab-' + name)) name = 'portfel';
-    document.querySelectorAll('.tab').forEach(s => { s.hidden = s.id !== 'tab-' + name; });
-    document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
-    try { history.replaceState(null, '', '#' + name); } catch { /* file:// w niektórych przeglądarkach */ }
-}
-
-// ---------- dane
-function onDataChanged(save) {
-    invalidate();
-    PLAN = null;
-    const cal = calendar();
-    const inp = $('#an-date');
-    ANALYSIS = cal.length ? cal[cal.length - 1] : 0;
-    if (cal.length) {
-        inp.min = iso(cal[0]);
-        inp.max = iso(ANALYSIS);
-        inp.value = iso(ANALYSIS);
-        inp.disabled = false;
-    } else {
-        inp.value = '';
-        inp.disabled = true;
-    }
-    $('#an-info').textContent = cal.length ? `ostatnia sesja w danych: ${plDate(cal[cal.length - 1])}` : 'brak wczytanych notowań';
-    $('#demo-banner').hidden = !DATA.demo;
-    $('#tickers').replaceChildren(...Object.keys(DATA.series).sort().map(t => h('option', { value: t })));
-    const bs = $('#bt-start');
-    if (cal.length && (!bs.value || fromIso(bs.value) < cal[0] || fromIso(bs.value) > ANALYSIS)) bs.value = iso(cal[Math.min(P.momLong, cal.length - 1)]);
-    renderDataStatus();
-    renderRanking();
-    renderPortfolio();
-    if (save) idb.set('data', DATA).catch(() => { $('#in-status').textContent += ' (nie udało się zapisać w przeglądarce)'; });
-}
-
-async function importFiles(list) {
-    const files = [...list].filter(f => /\.(csv|txt)$/i.test(f.name) && f.size > 0);
-    const st = $('#in-status');
-    if (!files.length) { st.textContent = 'Nie znaleziono plików .csv ani .txt.'; return; }
-    if (DATA.demo) DATA = { series: {}, demo: false };
-    let done = 0, ok = 0;
-    for (const f of files) {
-        try {
-            for (const [t, s] of Object.entries(parseStooq(f.name, await f.text()))) { DATA.series[t] = s; ok++; }
-        } catch { /* pomijamy uszkodzony plik */ }
-        if (++done % 25 === 0) { st.textContent = `Wczytuję ${done}/${files.length}…`; await new Promise(r => setTimeout(r)); }
-    }
-    st.textContent = `Wczytano ${ok} serii notowań z ${files.length} plików.`;
-    onDataChanged(true);
-}
-
-function renderDataStatus() {
-    const el = $('#data-status');
-    el.replaceChildren();
-    const all = Object.keys(DATA.series);
-    if (!all.length) { el.append(h('p', { class: 'muted small' }, 'Brak wczytanych notowań.')); return; }
-    const cal = calendar(), uni = universe(), b = benchTicker();
-    const listed = DATA.demo ? [] : parseTickers(SET.universe);
-    const missing = listed.filter(t => !DATA.series[t]);
-    const last = cal[cal.length - 1];
-    const stale = uni.filter(t => { const s = DATA.series[t]; return daysBetween(s.d[s.d.length - 1], last) > STALE_DAYS; });
-    el.append(h('dl', { class: 'kv' },
-        h('dt', {}, 'Wczytane serie'), h('dd', {}, String(all.length)),
-        h('dt', {}, 'Zakres sesji'), h('dd', {}, `${plDate(cal[0])} – ${plDate(last)} (${cal.length})`),
-        h('dt', {}, `Benchmark ${b || '—'}`), h('dd', {}, DATA.series[b] ? 'wczytany' : 'brak pliku'),
-        h('dt', {}, 'Uniwersum'), h('dd', {}, `${uni.length} spółek ${listed.length ? '(wg listy)' : '(wszystkie wczytane serie)'}`)));
-    if (!listed.length && !DATA.demo) el.append(h('div', { class: 'banner info' }, 'Lista uniwersum jest pusta, więc do rankingu trafiają wszystkie wczytane pliki. Wklej 140 tickerów z WIG20, mWIG40 i sWIG80, żeby trzymać się strategii.'));
-    if (missing.length) el.append(h('div', { class: 'banner warn' }, `Brak notowań dla ${missing.length} spółek z listy: ${missing.join(', ')}`));
-    if (stale.length) el.append(h('div', { class: 'banner warn' }, `Nieaktualne notowania (ostatnia sesja ponad ${STALE_DAYS} dni przed końcem danych): ${stale.join(', ')}`));
-}
-
-// ---------- ranking
-function renderRanking() {
-    const sum = $('#rk-summary'), host = $('#rk-table');
-    sum.replaceChildren();
-    host.replaceChildren();
-    if (!hasData()) { sum.append(h('div', { class: 'banner info' }, 'Wczytaj notowania w zakładce „Dane”.')); return; }
-    const { rows, top, eligible } = rankAt(ANALYSIS);
-    sum.append(tiles([
-        ['Dzień rankingu', plDate(ANALYSIS), `${sessionNumber(ANALYSIS)}. sesja miesiąca`],
-        ['Spółek w uniwersum', String(rows.length)],
-        ['Spełnia warunki', String(eligible), `momentum ≥ ${P.momMin}, wzrost ≤ ${P.riseMax}%`],
-        ['W transzy byłoby', `${top.length} z ${P.slots}`, top.length < P.slots ? `gotówka ${pct(1 - top.reduce((a, r) => a + r.weight, 0), 0)}` : 'pełne zaangażowanie'],
-    ]));
-    let n = 0;
-    const trs = rows.map(r => h('tr', { class: r.top ? 'is-top' : '' },
-        td(r.status === 'ok' || r.top ? String(++n) : '', true),
-        h('td', {}, h('b', {}, r.t)),
-        td(nf(r.price), true),
-        td(nf(r.m1, 1), true),
-        td(nf(r.m2, 1), true),
-        h('td', { class: 'num' }, h('b', {}, nf(r.mom, 1))),
-        td(pct(r.rise), true),
-        td(P.volMode === 'atr' ? pct(r.vol, 2) : pct(r.vol), true),
-        td(r.top ? pct(r.weight) : '', true),
-        h('td', {}, statusBadge(r))));
-    host.append(table(['>#', 'Spółka', '>Kurs', `>Mom. ${P.momShort}`, `>Mom. ${P.momLong}`, '>Momentum', `>Zmiana ${P.riseDays} sesji`, '>' + volLabel(), '>Waga w transzy', 'Status'], trs));
-}
-
-// ---------- portfel
-function renderPortfolio() {
-    const date = ANALYSIS;
-    $('#pf-date').textContent = hasData() ? `Wycena po kursach zamknięcia z ${plDate(date)}` : 'Brak notowań: wczytaj dane w zakładce „Dane”.';
-    const vals = PF.tranches.map(tr => trancheValue(tr, date));
-    const total = vals.reduce((a, b) => a + b, 0);
-    const cash = PF.tranches.reduce((a, tr) => a + tr.cash, 0);
-    const npos = PF.tranches.reduce((a, tr) => a + Object.keys(tr.pos).length, 0);
-    $('#pf-tiles').replaceChildren(tiles([
-        ['Wartość portfela', pln(total)],
-        ['Gotówka', pln(cash), total > 0 ? pct(cash / total) + ' portfela' : ''],
-        ['Pozycje', `${npos} / ${P.slots * TRANCHES}`],
-    ]));
-
-    const today = ymd(new Date());
-    const next = PF.tranches.map((_, k) => nextRebalance(k, today));
-    const soonest = Math.min(...next.map(x => x.exe || Infinity));
-    $('#pf-calendar').replaceChildren(table(['Transza', 'Miesiące', '>Sygnał (po 9. sesji)', '>Transakcje (10. sesja)'],
-        next.map((x, k) => h('tr', { class: x.exe === soonest ? 'is-top' : '' },
-            h('td', {}, h('b', {}, `Transza ${k + 1}`)), td(monthsLabel(k)), td(plDate(x.sig), true), td(plDate(x.exe), true)))));
-
-    const cards = $('#pf-cards');
-    cards.replaceChildren();
-    PF.tranches.forEach((tr, k) => {
-        const v = vals[k];
-        const posRows = Object.entries(tr.pos).sort(([a], [b]) => a.localeCompare(b)).map(([t, n]) => {
-            const p = priceAt(t, date);
-            return h('tr', {},
-                h('td', {}, h('b', {}, t)),
-                h('td', { class: 'num' }, h('input', {
-                    type: 'number', min: 0, step: 1, value: n, class: 'in-sm', 'aria-label': `Liczba akcji ${t}`,
-                    onchange: e => { const x = Math.floor(+e.target.value); if (x > 0) tr.pos[t] = x; else delete tr.pos[t]; savePF(); renderPortfolio(); },
-                })),
-                td(nf(p), true),
-                td(nf(n * p), true),
-                td(pct(n * p / v), true),
-                h('td', {}, h('button', { class: 'x', title: 'Usuń pozycję', 'aria-label': `Usuń ${t}`, onclick: () => { delete tr.pos[t]; savePF(); renderPortfolio(); } }, '×')));
-        });
-        const addT = h('input', { placeholder: 'Ticker', list: 'tickers', class: 'in-sm', 'aria-label': 'Ticker' });
-        const addN = h('input', { type: 'number', min: 1, step: 1, placeholder: 'Akcje', class: 'in-sm', 'aria-label': 'Liczba akcji' });
-        cards.append(h('div', { class: 'card' },
-            h('div', { class: 'row-between' }, h('h3', {}, `Transza ${k + 1}`), h('span', { class: 'muted small' }, monthsLabel(k))),
-            h('div', {}, h('span', { class: 'big' }, pln(v)), ' ', h('span', { class: 'muted small' }, total > 0 ? `${pct(v / total)} portfela` : '')),
-            h('div', { class: 'muted small' }, `Następny rebalans: sygnał ${plDate(next[k].sig)}, transakcje ${plDate(next[k].exe)}`),
-            h('label', { class: 'small muted' }, 'Gotówka (zł) ', h('input', {
-                type: 'number', step: '0.01', value: Math.round(tr.cash * 100) / 100, class: 'in-sm',
-                onchange: e => { tr.cash = +e.target.value || 0; savePF(); renderPortfolio(); },
-            })),
-            posRows.length ? table(['Spółka', '>Akcje', '>Kurs', '>Wartość', '>Udział', ''], posRows) : h('p', { class: 'muted small' }, 'Brak akcji w transzy.'),
-            h('div', { class: 'form-row tight' }, addT, addN, h('button', {
-                class: 'btn ghost sm',
-                onclick: () => {
-                    const t = addT.value.trim().toUpperCase(), n = Math.floor(+addN.value);
-                    if (!t || !(n > 0)) return;
-                    tr.pos[t] = (tr.pos[t] || 0) + n;
-                    savePF();
-                    renderPortfolio();
-                },
-            }, 'Dodaj akcje')),
-            h('button', {
-                class: 'btn', disabled: !hasData(),
-                onclick: () => { PLAN = planTranche(PF.tranches, k, ANALYSIS); renderPlan(); $('#pf-plan').scrollIntoView({ behavior: 'smooth', block: 'start' }); },
-            }, 'Plan rebalansu')));
-    });
-    renderPlan();
-    renderJournal();
-}
-
-function renderPlan() {
-    const el = $('#pf-plan');
-    el.replaceChildren();
-    if (!PLAN) return;
-    const pl = PLAN, k = pl.k, nextK = (k + 1) % TRANCHES;
-    const sess = sessionNumber(pl.date), month = Math.floor(pl.date / 100) % 100;
-    const onSchedule = sess === P.signalSession && trancheOfMonth(month) === k;
-    const sim = structuredClone(PF.tranches[k]);
-    let fees = 0;
-    executeOrders(sim, pl.orders, t => priceAt(t, pl.date), x => { fees += x.fee; });
-    const moved = Math.min(pl.excess, Math.max(0, sim.cash));
-    const missingPx = pl.orders.filter(o => !(o.price > 0)).map(o => o.t);
-
-    const card = h('div', { class: 'card' },
-        h('div', { class: 'row-between' },
-            h('h3', {}, `Plan rebalansu: Transza ${k + 1}`),
-            h('span', { class: 'muted small' }, `sygnał z zamknięcia ${plDate(pl.date)}`)));
-    if (!onSchedule) {
-        card.append(h('div', { class: 'banner warn' },
-            `Wybrany dzień to ${sess || '?'}. sesja miesiąca ${MONTHS[month - 1]}. Wg harmonogramu transza ${k + 1} rebalansuje się po ${P.signalSession}. sesji w miesiącach: ${monthsLabel(k)}. Plan jest poglądowy.`));
-    }
-    card.append(h('dl', { class: 'kv' },
-        h('dt', {}, 'Wartość transzy'), h('dd', {}, pln(pl.V)),
-        h('dt', {}, 'Wartość portfela / 3'), h('dd', {}, pln(pl.total / TRANCHES)),
-        h('dt', {}, `Nadwyżka do transzy ${nextK + 1}`), h('dd', {}, pln(moved)),
-        h('dt', {}, 'Kapitał do zainwestowania'), h('dd', {}, pln(pl.invest))));
-
-    const tgtRows = pl.rk.top.map((r, j) => {
-        const n = pl.target.get(r.t) || 0;
-        return h('tr', {}, td(String(j + 1), true), h('td', {}, h('b', {}, r.t)), td(nf(r.mom, 1), true), td(pct(r.rise), true),
-            td(P.volMode === 'atr' ? pct(r.vol, 2) : pct(r.vol), true), td(pct(r.weight), true), td(String(n), true), td(nf(r.price), true), td(nf(n * r.price), true));
-    });
-    card.append(h('h3', {}, 'Docelowy skład transzy'));
-    card.append(tgtRows.length
-        ? table(['>#', 'Spółka', '>Momentum', `>Zmiana ${P.riseDays} s.`, '>' + volLabel(), '>Waga', '>Akcje', '>Kurs', '>Wartość'], tgtRows)
-        : h('p', { class: 'muted' }, 'Żadna spółka nie spełnia warunków. Cała transza zostaje w gotówce.'));
-    if (pl.rk.top.length && pl.rk.top.length < P.slots) {
-        card.append(h('p', { class: 'note' }, `Warunki spełnia tylko ${pl.rk.top.length} z ${P.slots} spółek. Pozostała część transzy zostaje w gotówce.`));
-    }
-
-    card.append(h('h3', { style: 'margin-top:14px' }, 'Zlecenia'));
-    if (pl.orders.length) {
-        card.append(table(['Operacja', 'Spółka', '>Akcje', '>Kurs (zamkn.)', '>Wartość', '>Prowizja', 'Powód'],
-            pl.orders.map(o => h('tr', {},
-                h('td', { class: o.side === 'buy' ? 'side-buy' : 'side-sell' }, o.side === 'buy' ? 'KUP' : 'SPRZEDAJ'),
-                h('td', {}, h('b', {}, o.t)), td(String(o.shares), true), td(nf(o.price), true),
-                td(nf(o.shares * o.price), true), td(nf(fee(o.shares * o.price)), true), td(o.kind)))));
-    } else {
-        card.append(h('p', { class: 'muted' }, 'Brak zmian w składzie transzy.'));
-    }
-    if (missingPx.length) card.append(h('div', { class: 'banner warn' }, `Brak kursu dla: ${missingPx.join(', ')}. Te zlecenia zostaną pominięte przy księgowaniu.`));
-    card.append(h('p', { class: 'note' },
-        `Szacunkowo: prowizje ${pln(fees)}, gotówka po transakcjach ${pln(sim.cash - moved)}. Zlecenia składa się na następną sesję z realizacją po kursie zamknięcia (faza zamknięcia / fixing). Rzeczywiste kursy będą inne, więc po realizacji popraw gotówkę i liczbę akcji wg wyciągu z biura maklerskiego.`));
-
-    const copyBtn = h('button', { class: 'btn ghost sm' }, 'Kopiuj zlecenia');
-    copyBtn.onclick = () => {
-        const text = pl.orders.map(o => `${o.side === 'buy' ? 'KUP' : 'SPRZEDAJ'} ${o.t} ${o.shares} szt.`).join('\n') || 'Brak zleceń';
-        navigator.clipboard?.writeText(text).then(() => { copyBtn.textContent = 'Skopiowano'; }, () => { copyBtn.textContent = 'Nie udało się skopiować'; });
-    };
-    card.append(h('div', { class: 'form-row' },
-        h('button', { class: 'btn', onclick: bookPlan }, `Zaksięguj po kursach z ${plDate(pl.date)}`),
-        copyBtn,
-        h('button', { class: 'btn ghost sm', onclick: () => { PLAN = null; renderPlan(); } }, 'Zamknij')));
-    el.append(card);
-}
-
-function bookPlan() {
-    const pl = PLAN, k = pl.k, tr = PF.tranches[k], parts = [];
-    executeOrders(tr, pl.orders, t => priceAt(t, pl.date), x => parts.push(`${x.side === 'buy' ? 'kupno' : 'sprzedaż'} ${x.shares} ${x.t} po ${nf(x.price)}`));
-    const moved = transferExcess(PF.tranches, k, pl.excess);
-    journal(`Rebalans transzy ${k + 1} (sygnał ${plDate(pl.date)}): ${parts.join(', ') || 'bez zmian'}${moved ? `; nadwyżka ${pln(moved)} → transza ${(k + 1) % TRANCHES + 1}` : ''}.`);
-    savePF();
-    renderPortfolio();
-}
-
-function renderJournal() {
-    const ul = $('#pf-journal');
-    ul.replaceChildren(...PF.journal.slice(-50).reverse().map(j =>
-        h('li', {}, h('time', {}, new Date(j.ts).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' })), j.text)));
-    if (!PF.journal.length) ul.append(h('li', { class: 'muted' }, 'Brak wpisów.'));
-}
-
-// ---------- wykres liniowy (canvas + kursor z podpowiedzią)
-function niceTicks(a, b, count) {
-    const raw = (b - a) / count, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
-    const step = (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p;
-    const out = [];
-    for (let v = Math.ceil(a / step) * step; v <= b + step * 1e-9; v += step) out.push(+v.toFixed(10) || 0);
-    return out;
-}
-function logTicks(lo, hi) {
-    for (const ms of [[1, 2, 5], [1, 1.5, 2, 3, 5, 7]]) {
-        const out = [];
-        for (let e = Math.floor(Math.log10(lo)); e <= Math.ceil(Math.log10(hi)); e++) {
-            for (const m of ms) { const v = m * 10 ** e; if (v >= lo && v <= hi) out.push(v); }
-        }
-        if (out.length >= 4 || ms.length > 3) return out.length > 9 ? out.filter((_, i) => i % 2 === 0) : out;
-    }
-}
-
-function lineChart(host, cfg) {
-    host.replaceChildren();
-    if (cfg.series.length > 1) {
-        host.append(h('div', { class: 'legend' }, cfg.series.map(s => h('span', {}, h('i', { style: `background:var(${s.color})` }), s.name))));
-    }
-    const box = h('div', { class: 'chart-box', tabindex: 0, role: 'img', 'aria-label': cfg.label, style: `height:${cfg.height || 320}px` });
-    const base = h('canvas'), over = h('canvas'), tip = h('div', { class: 'tip' });
-    tip.hidden = true;
-    box.append(base, over, tip);
-    host.append(box);
-    const n = cfg.x.length;
-    let g = null, cur = -1;
-
-    function draw() {
-        const W = box.clientWidth, H = box.clientHeight;
-        if (!W || !H || !n) return;
-        const dpr = window.devicePixelRatio || 1;
-        for (const c of [base, over]) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
-        const ctx = base.getContext('2d');
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, W, H);
-        const cs = getComputedStyle(document.documentElement);
-        const col = name => cs.getPropertyValue(name).trim();
-        const endLabels = cfg.series.length <= 4 && W > 520;
-        const pad = { l: 52, r: endLabels ? 96 : 12, t: 10, b: 24 };
-        const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
-        let lo = Infinity, hi = -Infinity;
-        for (const s of cfg.series) for (const v of s.values) if (Number.isFinite(v) && (!cfg.log || v > 0)) { if (v < lo) lo = v; if (v > hi) hi = v; }
-        if (!Number.isFinite(lo)) return;
-        if (cfg.zeroTop) hi = 0;
-        const tf = v => cfg.log ? Math.log(v) : v;
-        let a = tf(lo), b = tf(hi);
-        if (a === b) { a -= 1; b += 1; }
-        const span = b - a;
-        a -= span * 0.04;
-        if (!cfg.zeroTop) b += span * 0.04;
-        const X = i => pad.l + (n > 1 ? i / (n - 1) : 0.5) * pw;
-        const Y = v => pad.t + (1 - (tf(v) - a) / (b - a)) * ph;
-
-        ctx.font = '11px system-ui, sans-serif';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        for (const t of cfg.log ? logTicks(Math.exp(a), Math.exp(b)) : niceTicks(a, b, 5)) {
-            const y = Math.round(Y(t)) + 0.5;
-            if (y < pad.t - 1 || y > pad.t + ph + 1) continue;
-            ctx.strokeStyle = col('--grid');
-            ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + pw, y); ctx.stroke();
-            ctx.fillStyle = col('--text-3');
-            ctx.fillText(cfg.yFmt(t), pad.l - 6, y);
-        }
-        ctx.strokeStyle = col('--border');
-        ctx.beginPath(); ctx.moveTo(pad.l, pad.t + ph + 0.5); ctx.lineTo(pad.l + pw, pad.t + ph + 0.5); ctx.stroke();
-
-        // oś X: lata, a przy krótkich zakresach miesiące
-        const marks = [];
-        const yearsSpan = Math.floor(cfg.x[n - 1] / 10000) - Math.floor(cfg.x[0] / 10000);
-        for (let i = 1; i < n; i++) {
-            const pm = Math.floor(cfg.x[i - 1] / 100), m = Math.floor(cfg.x[i] / 100);
-            if (yearsSpan >= 3 ? Math.floor(pm / 100) !== Math.floor(m / 100) : pm !== m) {
-                marks.push([i, yearsSpan >= 3 ? String(Math.floor(m / 100)) : `${pad2(m % 100)}.${String(Math.floor(m / 100)).slice(2)}`]);
-            }
-        }
-        const every = Math.max(1, Math.ceil(marks.length / Math.max(1, Math.floor(pw / 60))));
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillStyle = col('--text-3');
-        marks.forEach(([i, label], j) => { if (j % every === 0) ctx.fillText(label, X(i), pad.t + ph + 6); });
-
-        for (const s of cfg.series) {
-            ctx.strokeStyle = col(s.color);
-            ctx.lineWidth = s.width || 2;
-            ctx.lineJoin = 'round';
-            ctx.beginPath();
-            let pen = false;
-            for (let i = 0; i < n; i++) {
-                const v = s.values[i];
-                if (!Number.isFinite(v) || (cfg.log && v <= 0)) { pen = false; continue; }
-                if (pen) ctx.lineTo(X(i), Y(v)); else ctx.moveTo(X(i), Y(v));
-                pen = true;
-            }
-            ctx.stroke();
-        }
-
-        if (endLabels) {
-            const items = cfg.series.map(s => {
-                let i = n - 1;
-                while (i >= 0 && !Number.isFinite(s.values[i])) i--;
-                return i < 0 ? null : { s, v: s.values[i], y: Y(s.values[i]) };
-            }).filter(Boolean).sort((p, q) => p.y - q.y);
-            for (let j = 1; j < items.length; j++) if (items[j].y - items[j - 1].y < 28) items[j].y = items[j - 1].y + 28;
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            for (const it of items) {
-                ctx.fillStyle = col(it.s.color);
-                ctx.fillRect(pad.l + pw + 6, it.y - 7, 10, 2);
-                ctx.fillStyle = col('--text');
-                ctx.font = '600 12px system-ui, sans-serif';
-                ctx.fillText(cfg.yFmt(it.v, true), pad.l + pw + 20, it.y - 6);
-                ctx.fillStyle = col('--text-2');
-                ctx.font = '11px system-ui, sans-serif';
-                ctx.fillText(it.s.name, pad.l + pw + 20, it.y + 7);
-            }
-        }
-        g = { X, Y, pad, pw, ph, W, H, col, dpr };
-        drawCursor();
-    }
-
-    function drawCursor() {
-        if (!g) return;
-        const ctx = over.getContext('2d');
-        ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
-        ctx.clearRect(0, 0, g.W, g.H);
-        if (cur < 0) { tip.hidden = true; return; }
-        const x = g.X(cur);
-        ctx.strokeStyle = g.col('--text-3');
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, g.pad.t); ctx.lineTo(Math.round(x) + 0.5, g.pad.t + g.ph); ctx.stroke();
-        tip.replaceChildren(h('div', { class: 'tip-d' }, plDate(cfg.x[cur])));
-        for (const s of cfg.series) {
-            const v = s.values[cur];
-            if (!Number.isFinite(v) || (cfg.log && v <= 0)) continue;
-            ctx.fillStyle = g.col(s.color);
-            ctx.strokeStyle = g.col('--surface');
-            ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(x, g.Y(v), 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-            tip.append(h('div', { class: 'tip-r' }, h('i', { style: `background:var(${s.color})` }), h('b', {}, cfg.yFmt(v, true)), h('span', {}, s.name)));
-        }
-        tip.hidden = false;
-        const tw = tip.offsetWidth;
-        tip.style.left = Math.max(0, x + 12 + tw > g.W ? x - 12 - tw : x + 12) + 'px';
-        tip.style.top = g.pad.t + 'px';
-    }
-
-    box.addEventListener('pointermove', e => {
-        if (!g) return;
-        const r = box.getBoundingClientRect();
-        cur = Math.max(0, Math.min(n - 1, Math.round((e.clientX - r.left - g.pad.l) / g.pw * (n - 1))));
-        drawCursor();
-    });
-    box.addEventListener('pointerleave', () => { cur = -1; drawCursor(); });
-    box.addEventListener('blur', () => { cur = -1; drawCursor(); });
-    box.addEventListener('keydown', e => {
-        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        e.preventDefault();
-        const step = (e.shiftKey ? 20 : 1) * (e.key === 'ArrowLeft' ? -1 : 1);
-        cur = cur < 0 ? n - 1 : Math.max(0, Math.min(n - 1, cur + step));
-        drawCursor();
-    });
-    new ResizeObserver(draw).observe(box);
-    liveCharts.push(draw);
-}
-
-// ---------- symulacja
-function parseDeposits(text) {
-    return String(text || '').split(/\r?\n/).map(line => {
-        const m = /^\s*(\d{4}-\d{2}-\d{2})\s+([\d\s.,]+?)\s*$/.exec(line);
-        if (!m) return null;
-        const amount = parseFloat(m[2].replace(/\s/g, '').replace(',', '.'));
-        return amount > 0 ? { date: fromIso(m[1]), amount } : null;
-    }).filter(Boolean);
-}
-
-function btConfig() {
-    return { start: $('#bt-start').value, end: $('#bt-end').value, capital: $('#bt-capital').value, deposits: $('#bt-deposits').value };
-}
-
-function renderBacktest() {
-    const out = $('#bt-out');
-    out.replaceChildren();
-    liveCharts = [];
-    if (!BT) return;
-    const res = BT;
-    const st = perfStats(res.dates, res.twr), bs = perfStats(res.dates, res.bench);
-    const b = benchTicker() || 'Benchmark';
-    const finalV = res.value[res.value.length - 1];
-    const avgCash = res.cashPct.reduce((a, v) => a + v, 0) / res.cashPct.length;
-    const nTrades = res.trades.filter(x => x.side !== 'transfer').length;
-    out.append(tiles([
-        ['Wartość końcowa', pln(finalV), `wpłaty: ${pln(res.deposited)}`],
-        ['CAGR strategii', pct(st?.cagr), `łącznie ${pct(st?.total, 0)}`],
-        ['Maks. obsunięcie', pct(st?.mdd), `zmienność rocz. ${pct(st?.vol)}`],
-        [`CAGR ${b}`, bs ? pct(bs.cagr) : '–', bs ? `maks. obsunięcie ${pct(bs.mdd)}` : 'brak benchmarku'],
-        ['Transakcje', String(nTrades), `prowizje ${pln(res.fees)}`],
-        ['Średnio w gotówce', pct(avgCash), `${res.rebalances} rebalansów`],
-    ]));
-
-    const logCb = h('input', { type: 'checkbox', checked: true });
-    const trCb = h('input', { type: 'checkbox' });
-    const chartHost = h('div'), ddHost = h('div');
-    const hasBench = res.bench.some(Number.isFinite);
-    const drawMain = () => {
-        const series = [{ name: 'Strategia', color: '--series-1', values: res.twr }];
-        if (hasBench) series.push({ name: b, color: '--series-2', values: res.bench });
-        if (trCb.checked) res.trTwr.forEach((v, k) => series.push({ name: `Transza ${k + 1}`, color: `--series-${k + 3}`, values: v, width: 1.5 }));
-        liveCharts = liveCharts.filter(f => f !== drawMain.last);
-        lineChart(chartHost, { x: res.dates, series, log: logCb.checked, label: 'Wzrost wartości portfela strategii na tle benchmarku', yFmt: (v, full) => nf(v, full ? 1 : 0) });
-        drawMain.last = liveCharts[liveCharts.length - 1];
-    };
-    logCb.onchange = trCb.onchange = drawMain;
-    out.append(h('div', { class: 'card' },
-        h('div', { class: 'row-between' },
-            h('h3', {}, 'Wzrost wartości (start = 100, bez wpływu wpłat)'),
-            h('div', { class: 'form-row tight' },
-                h('label', { class: 'small muted' }, logCb, ' skala logarytmiczna'),
-                h('label', { class: 'small muted' }, trCb, ' pokaż transze'))),
-        chartHost));
-    drawMain();
-
-    const ddSeries = [{ name: 'Strategia', color: '--series-1', values: drawdown(res.twr) }];
-    if (hasBench) ddSeries.push({ name: b, color: '--series-2', values: drawdown(res.bench) });
-    out.append(h('div', { class: 'card' }, h('h3', {}, 'Obsunięcie od szczytu'), ddHost));
-    lineChart(ddHost, { x: res.dates, series: ddSeries, zeroTop: true, height: 200, label: 'Obsunięcie od szczytu', yFmt: (v, full) => pct(v, full ? 1 : 0) });
-
-    const yr = yearlyReturns(res.dates, [res.twr, res.bench, ...res.trTwr]);
-    out.append(h('div', { class: 'card' }, h('h3', {}, 'Stopy zwrotu w latach'),
-        table(['Rok', '>Strategia', '>' + b, '>Różnica', '>Transza 1', '>Transza 2', '>Transza 3'], yr.map(r => h('tr', {},
-            td(String(r.year)), h('td', { class: 'num' }, h('b', {}, pct(r.vals[0]))), td(pct(r.vals[1]), true),
-            td(Number.isFinite(r.vals[1]) ? nf((r.vals[0] - r.vals[1]) * 100, 1) + ' pp' : '–', true),
-            td(pct(r.vals[2]), true), td(pct(r.vals[3]), true), td(pct(r.vals[4]), true)))),
-        h('p', { class: 'note' }, 'Pierwszy i ostatni rok mogą być niepełne.')));
-
-    out.append(h('div', { class: 'card' }, h('h3', {}, 'Transze osobno'),
-        table(['Transza', 'Miesiące', '>CAGR', '>Maks. obsunięcie', '>Wartość końcowa', 'Skład na koniec'], res.final.map((tr, k) => {
-            const s = perfStats(res.dates, res.trTwr[k]);
-            return h('tr', {}, h('td', {}, h('b', {}, `Transza ${k + 1}`)), td(monthsLabel(k)), td(pct(s?.cagr), true), td(pct(s?.mdd), true),
-                td(pln(trancheValue(tr, res.endDate)), true), td(Object.entries(tr.pos).map(([t, n]) => `${t} ${n}`).join(', ') || 'gotówka'));
-        }))));
-
-    const tradeRows = res.trades.slice().reverse().map(x => h('tr', {},
-        td(plDate(x.date)), td(`T${x.k + 1}`),
-        h('td', { class: x.side === 'buy' ? 'side-buy' : x.side === 'sell' ? 'side-sell' : '' }, x.side === 'buy' ? 'KUP' : x.side === 'sell' ? 'SPRZEDAJ' : `nadwyżka → T${(x.k + 1) % TRANCHES + 1}`),
-        h('td', {}, x.t), td(x.shares ? String(x.shares) : '', true), td(nf(x.price), true), td(nf(x.value), true), td(x.fee ? nf(x.fee) : '', true)));
-    out.append(h('div', { class: 'card' }, h('h3', {}, `Dziennik transakcji (${res.trades.length})`),
-        table(['Data', 'Transza', 'Operacja', 'Spółka', '>Akcje', '>Kurs', '>Wartość', '>Prowizja'], tradeRows, 'scroll')));
-}
-
-// ---------- parametry
-const PARAM_UI = [
-    ['momShort', 'Momentum: krótki okres (sesje)', 'int'],
-    ['momLong', 'Momentum: długi okres (sesje)', 'int'],
-    ['momMin', 'Minimalne momentum', 'num'],
-    ['riseMax', 'Nie kupuj po wzroście większym niż (%)', 'num'],
-    ['riseDays', '…w ostatnich (sesje)', 'int'],
-    ['slots', 'Maks. liczba spółek w transzy', 'int'],
-    ['volDays', 'Okres zmienności (sesje)', 'int'],
-    ['volMode', 'Miara zmienności', [['atr', 'ATR / kurs'], ['std', 'odchylenie std. stóp zwrotu']]],
-    ['weightMode', 'Wagi', [['st', 'parytet ryzyka #ST (z-score, ±2)'], ['inv', 'proste 1 / zmienność']]],
-    ['zPop', 'Standaryzacja zmienności względem', [['top', 'spółek wybranych do transzy'], ['universe', 'całego uniwersum']]],
-    ['commPct', 'Prowizja (%)', 'num'],
-    ['commMin', 'Prowizja minimalna (zł)', 'num'],
-    ['signalSession', 'Sygnał po sesji nr (transakcje na następnej)', 'int'],
-    ['carryExcess', 'Nadwyżkę ponad 1/3 portfela przenoś do kolejnej transzy', 'bool'],
-    ['riseFilterHeld', 'Filtr wzrostu stosuj też do spółek już trzymanych', 'bool'],
-];
-const PARAM_MIN = { momShort: 10, momLong: 10, riseDays: 1, slots: 1, volDays: 2, signalSession: 1, commPct: 0, commMin: 0 };
-
-function renderParams() {
-    const host = $('#params');
-    host.replaceChildren();
-    for (const [key, label, type] of PARAM_UI) {
-        const changed = P[key] !== DEFAULT_PARAMS[key];
-        const onchange = e => {
-            const el = e.target;
-            let v;
-            if (type === 'bool') v = el.checked;
-            else if (Array.isArray(type)) v = el.value;
-            else {
-                v = type === 'int' ? Math.round(+el.value) : +el.value;
-                if (!Number.isFinite(v) || v < (PARAM_MIN[key] ?? -Infinity)) v = DEFAULT_PARAMS[key];
-                if (key === 'signalSession') v = Math.min(v, 17);
-            }
-            P[key] = v;
-            lsSet('momentum.params', P);
-            paramsChanged();
-        };
-        let input;
-        if (type === 'bool') input = h('input', { type: 'checkbox', checked: P[key], onchange });
-        else if (Array.isArray(type)) input = h('select', { onchange }, type.map(([v, l]) => h('option', { value: v, selected: P[key] === v }, l)));
-        else input = h('input', { type: 'number', step: type === 'int' ? 1 : 'any', value: P[key], onchange });
-        const text = h('span', {}, label, changed ? h('span', { class: 'badge b-warn', style: 'margin-left:6px' }, 'zmienione') : null);
-        host.append(type === 'bool' ? h('label', { class: 'check span-all' }, input, text) : h('label', {}, text, input));
-    }
-}
-function paramsChanged() {
-    PLAN = null;
-    renderParams();
-    renderRanking();
-    renderPortfolio();
-}
-
-// ---------- start
-async function init() {
-    P = { ...DEFAULT_PARAMS, ...lsGet('momentum.params', {}) };
-    SET = { ...SET, ...lsGet('momentum.settings', {}) };
-    const bt = lsGet('momentum.backtest', null);
-    if (bt) {
-        $('#bt-start').value = bt.start || '';
-        $('#bt-end').value = bt.end || '';
-        $('#bt-capital').value = bt.capital || 100000;
-        $('#bt-deposits').value = bt.deposits || '';
-    }
-    $('#set-bench').value = SET.bench;
-    $('#set-universe').value = SET.universe;
-
-    document.querySelectorAll('.tabs button').forEach(b => { b.onclick = () => showTab(b.dataset.tab); });
-
-    $('#an-date').onchange = e => {
-        const cal = calendar();
-        const i = lastIdx(cal, fromIso(e.target.value));
-        ANALYSIS = cal[Math.max(0, i)];
-        e.target.value = iso(ANALYSIS);
-        PLAN = null;
-        renderRanking();
-        renderPortfolio();
-    };
-
-    $('#in-files').onchange = e => { importFiles(e.target.files); e.target.value = ''; };
-    $('#in-dir').onchange = e => { importFiles(e.target.files); e.target.value = ''; };
-    const drop = $('#drop');
-    drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
-    drop.ondragleave = () => drop.classList.remove('over');
-    drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); importFiles(e.dataTransfer.files); };
-    $('#btn-demo').onclick = () => {
-        DATA = { series: makeDemo(), demo: true };
-        SET.bench = 'WIG';
-        $('#set-bench').value = 'WIG';
-        lsSet('momentum.settings', SET);
-        $('#in-status').textContent = 'Wczytano dane demonstracyjne.';
-        onDataChanged(true);
-    };
-    $('#btn-clear').onclick = () => {
-        if (!confirm('Usunąć wszystkie wczytane notowania z przeglądarki?')) return;
-        DATA = { series: {}, demo: false };
-        BT = null;
-        renderBacktest();
-        $('#in-status').textContent = '';
-        onDataChanged(true);
-    };
-    $('#set-bench').onchange = e => { SET.bench = e.target.value.trim().toUpperCase(); e.target.value = SET.bench; lsSet('momentum.settings', SET); onDataChanged(false); };
-    $('#set-universe').onchange = e => { SET.universe = e.target.value; lsSet('momentum.settings', SET); onDataChanged(false); };
-
-    $('#dep-add').onclick = () => {
-        const amt = Math.round(+$('#dep-amount').value * 100) / 100;
-        if (!(amt > 0)) return;
-        const target = $('#dep-target').value;
-        if (target === 'all') {
-            const part = Math.floor(amt / TRANCHES * 100) / 100;
-            PF.tranches.forEach((tr, k) => { tr.cash += k === TRANCHES - 1 ? amt - part * (TRANCHES - 1) : part; });
-            journal(`Wpłata ${pln(amt)} podzielona po równo na ${TRANCHES} transze.`);
-        } else {
-            PF.tranches[+target].cash += amt;
-            journal(`Wpłata ${pln(amt)} do transzy ${+target + 1}.`);
-        }
-        $('#dep-amount').value = '';
-        savePF();
-        renderPortfolio();
-    };
-    $('#pf-export').onclick = () => {
-        const url = URL.createObjectURL(new Blob([JSON.stringify(PF, null, 2)], { type: 'application/json' }));
-        const a = h('a', { href: url, download: `momentum-portfel-${iso(ymd(new Date()))}.json` });
-        document.body.append(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-    };
-    $('#pf-import').onchange = async e => {
-        const f = e.target.files[0];
-        e.target.value = '';
-        if (!f) return;
-        try {
-            PF = normalizePF(JSON.parse(await f.text()));
-            journal(`Zaimportowano portfel z pliku ${f.name}.`);
-            savePF();
-            renderPortfolio();
-        } catch {
-            alert('Nie udało się odczytać pliku portfela.');
-        }
-    };
-    $('#pf-reset').onclick = () => {
-        if (!confirm('Wyzerować portfel (gotówkę, pozycje i dziennik)?')) return;
-        PF = normalizePF(null);
-        savePF();
-        renderPortfolio();
-    };
-
-    $('#bt-run').onclick = () => {
-        const st = $('#bt-status');
-        if (!hasData()) { st.textContent = 'Najpierw wczytaj notowania.'; return; }
-        const raw = btConfig();
-        lsSet('momentum.backtest', raw);
-        const cfg = { start: fromIso(raw.start) || calendar()[0], end: fromIso(raw.end), capital: Math.max(0, +raw.capital || 0), deposits: parseDeposits(raw.deposits) };
-        st.textContent = 'Liczę…';
-        setTimeout(() => {
-            try {
-                const t0 = performance.now();
-                BT = runBacktest(cfg);
-                renderBacktest();
-                st.textContent = `Gotowe: ${plDate(BT.dates[0])} – ${plDate(BT.endDate)}, ${Math.round(performance.now() - t0)} ms.`;
-            } catch (err) {
-                st.textContent = 'Błąd: ' + err.message;
-            }
-        }, 20);
-    };
-    $('#par-reset').onclick = () => { P = { ...DEFAULT_PARAMS }; lsSet('momentum.params', P); paramsChanged(); };
-
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => liveCharts.forEach(f => f()));
-
-    renderParams();
-    try {
-        const saved = await idb.get('data');
-        if (saved?.series) DATA = saved;
-    } catch { /* IndexedDB niedostępne: dane trzeba wczytać ponownie */ }
-    onDataChanged(false);
-    showTab(location.hash.slice(1) || (hasData() ? 'portfel' : 'dane'));
-}
-init();
-</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="momentum/config.js"></script>
+<script src="momentum/engine.js"></script>
+<script src="momentum/sync.js"></script>
+<script src="momentum/app.js"></script>
 </body>
 </html>
